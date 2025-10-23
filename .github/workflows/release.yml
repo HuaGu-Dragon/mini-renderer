@@ -2,9 +2,11 @@ name: Release
 
 on:
   push:
-    branches: [main]
     tags:
       - v[0-9]+.*
+
+permissions:
+  contents: write
 
 jobs:
   create-release:
