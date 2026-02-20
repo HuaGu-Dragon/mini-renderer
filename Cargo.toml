@@ -1,0 +1,10 @@
+[package]
+name = "mini-renderer"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+softbuffer = { git = "https://github.com/rust-windowing/softbuffer.git"}
+winit = "0.30.12"
+
+[dependencies]
