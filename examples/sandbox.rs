@@ -1,7 +1,8 @@
+use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
-use softbuffer::{Context, Pixel, Surface};
+use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop, OwnedDisplayHandle};
@@ -105,13 +106,14 @@ impl ApplicationHandler for App {
                 let mut buffer = surface.next_buffer().unwrap();
 
                 // Render into the buffer.
-                for (x, y, pixel) in buffer.pixels_iter() {
-                    let red = (x % 255) as u8;
-                    let green = (y % 255) as u8;
-                    let blue = ((x * y) % 255) as u8;
+                let mut renderer = Renderer::new(
+                    buffer.width().get() as usize,
+                    buffer.height().get() as usize,
+                );
 
-                    *pixel = Pixel::new_rgb(red, green, blue);
-                }
+                renderer.render(&mut buffer, |renderer| {
+                    renderer.draw_line(0, 0, 100, 100, [255, 0, 0, 255]);
+                });
 
                 // Send the buffer to the compositor.
                 buffer.present().unwrap();
@@ -121,5 +123,70 @@ impl ApplicationHandler for App {
             }
             _ => {}
         }
+    }
+}
+
+struct Renderer {
+    width: usize,
+    height: usize,
+    buffer: Vec<MaybeUninit<Pixel>>,
+}
+
+impl Renderer {
+    fn new(width: usize, height: usize) -> Self {
+        let mut buffer = Vec::with_capacity(width * height);
+        unsafe {
+            buffer.set_len(width * height);
+        }
+        Self {
+            width,
+            height,
+            buffer,
+        }
+    }
+
+    fn draw_point(&mut self, x: i32, y: i32, color: [u8; 4]) {
+        assert!(x >= 0 && x < self.width as i32);
+        assert!(y >= 0 && y < self.height as i32);
+
+        self.buffer[x as usize + y as usize * self.width]
+            .write(Pixel::new_rgb(color[0], color[1], color[2]));
+    }
+
+    fn draw_line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, color: [u8; 4]) {
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+
+        let mut e = -dx;
+        let step = 2 * dy;
+        let desc = -2 * dx;
+
+        let mut x = x0;
+        let mut y = y0;
+
+        while x != x1 {
+            self.draw_point(x, y, color);
+
+            e += step;
+            if e >= 0 {
+                y += 1;
+                e += desc;
+            }
+            x += 1;
+        }
+    }
+
+    fn render<F>(&mut self, buffer: &mut Buffer, draw: F)
+    where
+        F: Fn(&mut Self),
+    {
+        draw(self);
+
+        let pixels = unsafe {
+            std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [softbuffer::Pixel]>(
+                &mut self.buffer[..],
+            )
+        };
+        buffer.pixels().swap_with_slice(pixels);
     }
 }
