@@ -1,3 +1,4 @@
-pub(crate) mod math;
+pub mod graphics;
+pub mod math;
 pub mod pipeline;
 pub mod renderer;
