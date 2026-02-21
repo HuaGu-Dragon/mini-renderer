@@ -1,0 +1,8 @@
+#[cfg(feature = "glam")]
+pub type Vec2 = glam::Vec2;
+#[cfg(feature = "glam")]
+pub type Vec3 = glam::Vec3;
+#[cfg(feature = "glam")]
+pub type Mat3 = glam::Mat3;
+#[cfg(feature = "glam")]
+pub type Mat4 = glam::Mat4;
