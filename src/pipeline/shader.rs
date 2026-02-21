@@ -1,32 +1,37 @@
+use crate::math::Vec4;
+
+pub struct VertexInput<V, Varying> {
+    pub vertex: V,
+    pub varying: Varying,
+}
+
+#[derive(Debug)]
+pub struct VertexOutput<V> {
+    pub position: Vec4,
+    pub varying: V,
+}
+
 pub trait VertexShader {
     type Vertex;
-    type VaryingData;
+    type Varying;
 
-    fn init() -> Self
-    where
-        Self: Sized;
-
-    fn vs_main();
+    fn vs_main(
+        &self,
+        vertex: &VertexInput<Self::Vertex, Self::Varying>,
+    ) -> VertexOutput<Self::Varying>;
 }
 
 pub trait FragmentShader {
-    type VaryingData;
+    type Varying;
 
-    fn init() -> Self
-    where
-        Self: Sized;
-
-    fn fs_main();
+    fn fs_main(&self, varying: &Self::Varying) -> [u8; 4];
 }
 
 pub trait ShaderProgram {
     type Vertex;
-    type VaryingData;
-    type Uniform;
+    type Varying;
 
-    fn vertex_shader(
-        &self,
-    ) -> impl VertexShader<Vertex = Self::Vertex, VaryingData = Self::VaryingData>;
+    fn vertex_shader(&self) -> impl VertexShader<Vertex = Self::Vertex, Varying = Self::Varying>;
 
-    fn fragment_shader(&self) -> impl FragmentShader<VaryingData = Self::VaryingData>;
+    fn fragment_shader(&self) -> impl FragmentShader<Varying = Self::Varying>;
 }
