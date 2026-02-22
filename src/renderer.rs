@@ -1,1 +1,3 @@
-pub trait Renderer {}
+pub trait Renderer {
+    fn clear();
+}
