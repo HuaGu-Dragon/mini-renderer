@@ -2,7 +2,7 @@ use crate::{graphics::color::IntoColor, math::Vec4};
 
 pub struct VertexInput<Var, Varying> {
     pub vertex: Var,
-    pub varying: Varying,
+    pub varying: Option<Varying>,
 }
 
 #[derive(Debug)]
