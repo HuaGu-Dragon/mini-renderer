@@ -36,6 +36,7 @@ impl<V, F, R> Pipeline<V, F, R> {
     pub fn draw<Var, C>(
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
+        depth_buffer: &mut [f32],
         framebuffer: &mut [C::Output],
         width: usize,
     ) where
@@ -56,8 +57,11 @@ impl<V, F, R> Pipeline<V, F, R> {
         let fragments = self.rasterizer.rasterize(assembled);
 
         fragments.for_each(|f| {
-            let output = self.fragment_shader.fs_main(&f.varying);
-            framebuffer[f.x + f.y * width] = output.into_color();
+            if f.depth < depth_buffer[f.x + f.y * width] {
+                let output = self.fragment_shader.fs_main(&f.varying);
+                framebuffer[f.x + f.y * width] = output.into_color();
+                depth_buffer[f.x + f.y * width] = f.depth;
+            }
         });
     }
 }
