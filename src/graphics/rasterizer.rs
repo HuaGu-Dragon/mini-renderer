@@ -30,6 +30,11 @@ impl TriangleRasterizer {
         Self { width, height }
     }
 
+    pub fn resize(&mut self, width: usize, height: usize) {
+        self.width = width;
+        self.height = height;
+    }
+
     fn clip_to_screen(&self, clip_pos: Vec4) -> Vec4 {
         let ndc_x = clip_pos.x / clip_pos.w;
         let ndc_y = clip_pos.y / clip_pos.w;
