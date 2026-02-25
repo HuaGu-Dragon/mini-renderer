@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dev-dependencies]
+image = "0.25.9"
 softbuffer = { git = "https://github.com/rust-windowing/softbuffer.git"}
 winit = "0.30.12"
 
