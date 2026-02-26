@@ -3,13 +3,14 @@ use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
-use image::{ImageBuffer, Rgba};
+use image::{ImageBuffer, Rgb};
 use mini_renderer::graphics::color::IntoColor;
 use mini_renderer::graphics::primitive::PrimitiveAssembler;
 use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
+use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -153,7 +154,7 @@ impl Renderer {
 
         let diffuse_bytes = include_bytes!("../assets/HuaGuDragon.jpg");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        let diffuse_rgba = diffuse_image.to_rgba8();
+        let diffuse_rgba = diffuse_image.to_rgb32f();
 
         let pipeline = Pipeline::new(
             Vertex,
@@ -208,27 +209,45 @@ impl Renderer {
         let vertexs = [
             VertexInput {
                 vertex: (-0.5, 0.5, 0.0),
-                varying: Some((0.0, 0.0)),
+                varying: Some(ColorOutput {
+                    tex_coord: (0.0, 0.0),
+                    color: (1.0, 0.0, 0.0),
+                }),
             },
             VertexInput {
                 vertex: (0.5, 0.5, 0.0),
-                varying: Some((1.0, 0.0)),
+                varying: Some(ColorOutput {
+                    tex_coord: (1.0, 0.0),
+                    color: (0.0, 1.0, 0.0),
+                }),
             },
             VertexInput {
                 vertex: (-0.5, -0.5, 0.0),
-                varying: Some((0.0, 1.0)),
+                varying: Some(ColorOutput {
+                    tex_coord: (0.0, 1.0),
+                    color: (0.0, 0.0, 1.0),
+                }),
             },
             VertexInput {
                 vertex: (0.5, 0.5, 0.0),
-                varying: Some((1.0, 0.0)),
+                varying: Some(ColorOutput {
+                    tex_coord: (1.0, 0.0),
+                    color: (0.0, 1.0, 0.0),
+                }),
             },
             VertexInput {
                 vertex: (0.5, -0.5, 0.0),
-                varying: Some((1.0, 1.0)),
+                varying: Some(ColorOutput {
+                    tex_coord: (1.0, 1.0),
+                    color: (1.0, 1.0, 0.0),
+                }),
             },
             VertexInput {
                 vertex: (-0.5, -0.5, 0.0),
-                varying: Some((0.0, 1.0)),
+                varying: Some(ColorOutput {
+                    tex_coord: (0.0, 1.0),
+                    color: (0.0, 0.0, 1.0),
+                }),
             },
         ];
 
@@ -245,13 +264,13 @@ impl Renderer {
 
 struct Vertex;
 struct Fragment {
-    buffer: ImageBuffer<Rgba<u8>, Vec<u8>>,
+    buffer: ImageBuffer<Rgb<f32>, Vec<f32>>,
 }
 
 impl VertexShader for Vertex {
     type Vertex = (f32, f32, f32);
 
-    type Varying = (f32, f32);
+    type Varying = ColorOutput;
 
     fn vs_main(
         &self,
@@ -267,11 +286,11 @@ impl VertexShader for Vertex {
 }
 
 impl FragmentShader for Fragment {
-    type Varying = (f32, f32);
+    type Varying = ColorOutput;
     type Output = Color;
 
     fn fs_main(&self, varying: &Self::Varying) -> Color {
-        let (u, v) = varying;
+        let (u, v) = varying.tex_coord;
 
         let x = (u * (self.buffer.width() - 1) as f32) as u32;
         let y = (v * (self.buffer.height() - 1) as f32) as u32;
@@ -282,9 +301,9 @@ impl FragmentShader for Fragment {
         let pixel = self.buffer.get_pixel(x, y);
 
         Color {
-            r: pixel[0],
-            g: pixel[1],
-            b: pixel[2],
+            r: ((pixel[0] * 0.7 + varying.color.0 * 0.3) * 255.0) as u8,
+            g: ((pixel[1] * 0.7 + varying.color.1 * 0.3) * 255.0) as u8,
+            b: ((pixel[2] * 0.7 + varying.color.2 * 0.3) * 255.0) as u8,
         }
     }
 }
@@ -301,5 +320,27 @@ impl IntoColor for Color {
 
     fn into_color(self) -> Self::Output {
         Pixel::new_rgb(self.r, self.g, self.b)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ColorOutput {
+    tex_coord: (f32, f32),
+    color: (f32, f32, f32),
+}
+
+impl Varying for ColorOutput {
+    fn interpolate(v0: &Self, v1: &Self, v2: &Self, w0: f32, w1: f32, w2: f32) -> Self {
+        Self {
+            tex_coord: Varying::interpolate(
+                &v0.tex_coord,
+                &v1.tex_coord,
+                &v2.tex_coord,
+                w0,
+                w1,
+                w2,
+            ),
+            color: Varying::interpolate(&v0.color, &v1.color, &v2.color, w0, w1, w2),
+        }
     }
 }
