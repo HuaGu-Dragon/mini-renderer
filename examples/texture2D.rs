@@ -296,7 +296,7 @@ impl FragmentShader for Fragment {
         let y = (v * (self.buffer.height() - 1) as f32) as u32;
 
         let x = x.min(self.buffer.width() - 1);
-        let y = y.min(self.buffer.width() - 1);
+        let y = y.min(self.buffer.height() - 1);
 
         let pixel = self.buffer.get_pixel(x, y);
 
