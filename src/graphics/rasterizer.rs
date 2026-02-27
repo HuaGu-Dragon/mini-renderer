@@ -42,8 +42,9 @@ impl TriangleRasterizer {
 
         let screen_x = (ndc_x + 1.) * 0.5 * self.width as f32;
         let screen_y = (1. - ndc_y) * 0.5 * self.height as f32;
+        let screen_z = (ndc_z + 1.) * 0.5;
 
-        Vec4::new(screen_x, screen_y, ndc_z, clip_pos.w)
+        Vec4::new(screen_x, screen_y, screen_z, clip_pos.w)
     }
 
     fn edge_function(a: Vec2, b: Vec2, c: Vec2) -> f32 {
