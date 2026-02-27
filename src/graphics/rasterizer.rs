@@ -115,9 +115,9 @@ impl TriangleRasterizer {
                             v0_varying,
                             v1_varying,
                             v2_varying,
-                            w0 / area / v0.w,
-                            w1 / area / v1.w,
-                            w2 / area / v2.w,
+                            weight0 / sum,
+                            weight1 / sum,
+                            weight2 / sum,
                         ),
                     });
                 }
