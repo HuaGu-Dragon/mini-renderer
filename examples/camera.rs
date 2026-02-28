@@ -13,8 +13,9 @@ use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput,
 use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
-use winit::event::{StartCause, WindowEvent};
+use winit::event::{ElementState, KeyEvent, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop, OwnedDisplayHandle};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 fn main() {
@@ -41,6 +42,7 @@ enum AppState {
     Running {
         surface: Surface<OwnedDisplayHandle, Rc<Window>>,
         renderer: Renderer,
+        controller: CameraController,
     },
 }
 
@@ -74,9 +76,13 @@ impl ApplicationHandler for App {
             // Resize surface
             surface.resize(width, height).unwrap();
         }
-
         let renderer = Renderer::new(size.width as usize, size.height as usize);
-        self.state = AppState::Running { surface, renderer };
+        let controller = CameraController::new(0.01);
+        self.state = AppState::Running {
+            surface,
+            renderer,
+            controller,
+        };
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
@@ -94,7 +100,12 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let AppState::Running { surface, renderer } = &mut self.state else {
+        let AppState::Running {
+            surface,
+            renderer,
+            controller,
+        } = &mut self.state
+        else {
             unreachable!("got window event while suspended");
         };
 
@@ -118,6 +129,8 @@ impl ApplicationHandler for App {
                 // Get the next buffer.
                 let mut buffer = surface.next_buffer().unwrap();
 
+                controller.update_camera(&mut renderer.camera);
+
                 // Render into the buffer.
                 renderer.render(&mut buffer);
 
@@ -130,6 +143,7 @@ impl ApplicationHandler for App {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
             }
+            WindowEvent::KeyboardInput { event, .. } => controller.process_events(&event),
             _ => {}
         }
     }
@@ -141,11 +155,22 @@ struct Renderer {
     buffer: Vec<MaybeUninit<Pixel>>,
     depth_buffer: Vec<f32>,
     pipeline: Pipeline<Vertex, Fragment, TriangleRasterizer>,
+    camera: Camera,
 }
 
 impl Renderer {
     fn new(width: usize, height: usize) -> Self {
         let mut buffer = Vec::with_capacity(width * height);
+        let camera = Camera {
+            eye: (0.0, 1.0, 2.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: Vec3::Y,
+            aspect: width as f32 / height as f32,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.0,
+        };
+
         unsafe {
             buffer.set_len(width * height);
         }
@@ -157,17 +182,7 @@ impl Renderer {
         let diffuse_rgba = diffuse_image.to_rgb32f();
 
         let pipeline = Pipeline::new(
-            Vertex {
-                camera: Camera {
-                    eye: (0.0, 1.0, 2.0).into(),
-                    target: (0.0, 0.0, 0.0).into(),
-                    up: Vec3::Y,
-                    aspect: width as f32 / height as f32,
-                    fovy: 45.0,
-                    znear: 0.1,
-                    zfar: 100.0,
-                },
-            },
+            Vertex { camera },
             Fragment {
                 buffer: diffuse_rgba,
             },
@@ -183,6 +198,7 @@ impl Renderer {
             buffer,
             depth_buffer,
             pipeline,
+            camera,
         }
     }
 
@@ -217,6 +233,7 @@ impl Renderer {
         pixels.fill(Pixel::new_rgb(0, 0, 0));
         self.depth_buffer.fill(1.0);
 
+        self.pipeline.vertex_shader.camera = self.camera;
         let vertexs = [
             VertexInput {
                 vertex: (-0.5, 0.5, 0.0),
@@ -362,6 +379,83 @@ impl Varying for ColorOutput {
     }
 }
 
+struct CameraController {
+    speed: f32,
+    is_forward_pressed: bool,
+    is_backward_pressed: bool,
+    is_left_pressed: bool,
+    is_right_pressed: bool,
+    is_up_pressed: bool,
+    is_down_pressed: bool,
+}
+
+impl CameraController {
+    fn new(speed: f32) -> Self {
+        Self {
+            speed,
+            is_forward_pressed: false,
+            is_backward_pressed: false,
+            is_left_pressed: false,
+            is_right_pressed: false,
+            is_up_pressed: false,
+            is_down_pressed: false,
+        }
+    }
+
+    fn process_events(&mut self, event: &KeyEvent) {
+        let is_pressed = event.state == ElementState::Pressed;
+
+        if event.physical_key == PhysicalKey::Code(KeyCode::Space) {
+            self.is_up_pressed = is_pressed;
+        }
+
+        match event.physical_key {
+            PhysicalKey::Code(KeyCode::ShiftLeft) => {
+                self.is_down_pressed = is_pressed;
+            }
+            PhysicalKey::Code(KeyCode::KeyW) | PhysicalKey::Code(KeyCode::ArrowUp) => {
+                self.is_forward_pressed = is_pressed;
+            }
+            PhysicalKey::Code(KeyCode::KeyA) | PhysicalKey::Code(KeyCode::ArrowLeft) => {
+                self.is_left_pressed = is_pressed;
+            }
+            PhysicalKey::Code(KeyCode::KeyS) | PhysicalKey::Code(KeyCode::ArrowDown) => {
+                self.is_backward_pressed = is_pressed;
+            }
+            PhysicalKey::Code(KeyCode::KeyD) | PhysicalKey::Code(KeyCode::ArrowRight) => {
+                self.is_right_pressed = is_pressed;
+            }
+            _ => {}
+        }
+    }
+
+    fn update_camera(&self, camera: &mut Camera) {
+        let forward = camera.target - camera.eye;
+        let forward = forward.normalize();
+        let right = forward.cross(camera.up).normalize();
+
+        if self.is_forward_pressed {
+            camera.eye += forward * self.speed;
+        }
+        if self.is_backward_pressed {
+            camera.eye -= forward * self.speed;
+        }
+        if self.is_right_pressed {
+            camera.eye += right * self.speed;
+        }
+        if self.is_left_pressed {
+            camera.eye -= right * self.speed;
+        }
+        if self.is_up_pressed {
+            camera.eye += camera.up * self.speed;
+        }
+        if self.is_down_pressed {
+            camera.eye -= camera.up * self.speed;
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 struct Camera {
     eye: Vec3,
     target: Vec3,
