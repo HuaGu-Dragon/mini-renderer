@@ -41,7 +41,7 @@ enum AppState {
     },
     Running {
         surface: Surface<OwnedDisplayHandle, Rc<Window>>,
-        renderer: Renderer,
+        renderer: Box<Renderer>,
         controller: CameraController,
     },
 }
@@ -76,7 +76,7 @@ impl ApplicationHandler for App {
             // Resize surface
             surface.resize(width, height).unwrap();
         }
-        let renderer = Renderer::new(size.width as usize, size.height as usize);
+        let renderer = Box::new(Renderer::new(size.width as usize, size.height as usize));
         let controller = CameraController::new(0.01);
         self.state = AppState::Running {
             surface,
