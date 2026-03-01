@@ -12,7 +12,7 @@ pub mod shader;
 pub mod varying;
 
 pub struct Pipeline<V, F, R> {
-    vertex_shader: V,
+    pub vertex_shader: V,
     fragment_shader: F,
     pub rasterizer: R,
     assembler: PrimitiveAssembler,
