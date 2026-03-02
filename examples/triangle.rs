@@ -217,12 +217,12 @@ impl FragmentShader for Fragment {
     type Varying = (f32, f32, f32);
     type Output = Color;
 
-    fn fs_main(&self, varying: &Self::Varying) -> Color {
-        Color {
+    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
+        Some(Color {
             r: (varying.0 * 255.0) as u8,
             g: (varying.1 * 255.0) as u8,
             b: (varying.2 * 255.0) as u8,
-        }
+        })
     }
 }
 

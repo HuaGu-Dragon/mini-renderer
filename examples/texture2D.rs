@@ -289,7 +289,7 @@ impl FragmentShader for Fragment {
     type Varying = ColorOutput;
     type Output = Color;
 
-    fn fs_main(&self, varying: &Self::Varying) -> Color {
+    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
         let (u, v) = varying.tex_coord;
 
         let x = (u * (self.buffer.width() - 1) as f32) as u32;
@@ -300,11 +300,11 @@ impl FragmentShader for Fragment {
 
         let pixel = self.buffer.get_pixel(x, y);
 
-        Color {
+        Some(Color {
             r: ((pixel[0] * 0.7 + varying.color.0 * 0.3) * 255.0) as u8,
             g: ((pixel[1] * 0.7 + varying.color.1 * 0.3) * 255.0) as u8,
             b: ((pixel[2] * 0.7 + varying.color.2 * 0.3) * 255.0) as u8,
-        }
+        })
     }
 }
 

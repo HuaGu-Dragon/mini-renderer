@@ -26,7 +26,7 @@ pub trait FragmentShader {
     type Varying;
     type Output: IntoColor;
 
-    fn fs_main(&self, varying: &Self::Varying) -> Self::Output;
+    fn fs_main(&self, varying: &Self::Varying) -> Option<Self::Output>;
 }
 
 pub trait ShaderProgram {
