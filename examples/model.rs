@@ -50,7 +50,6 @@ enum AppState {
 impl ApplicationHandler for App {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::Init = cause {
-            // Create window on startup.
             let window_attrs = WindowAttributes::default().with_title("sandbox");
             let window = event_loop
                 .create_window(window_attrs)
@@ -62,19 +61,16 @@ impl ApplicationHandler for App {
     }
 
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        // Create or re-create the surface.
         let AppState::Suspended { window } = &mut self.state else {
             unreachable!("got resumed event while not suspended");
         };
         let mut surface =
             Surface::new(&self.context, window.clone()).expect("failed creating surface");
 
-        // TODO: https://github.com/rust-windowing/softbuffer/issues/106
         let size = window.inner_size();
         if let (Some(width), Some(height)) =
             (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
         {
-            // Resize surface
             surface.resize(width, height).unwrap();
         }
         let renderer = Box::new(Renderer::new(size.width as usize, size.height as usize));
@@ -87,7 +83,6 @@ impl ApplicationHandler for App {
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        // Drop the surface.
         let AppState::Running { surface, .. } = &mut self.state else {
             unreachable!("got resumed event while not running");
         };
@@ -119,25 +114,19 @@ impl ApplicationHandler for App {
                 if let (Some(width), Some(height)) =
                     (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
                 {
-                    // Resize surface
                     surface.resize(width, height).unwrap();
                     renderer.resize(width.get() as usize, height.get() as usize);
                 }
             }
             WindowEvent::RedrawRequested => {
-                // let start = std::time::Instant::now();
 
-                // Get the next buffer.
                 let mut buffer = surface.next_buffer().unwrap();
 
                 controller.update_camera(&mut renderer.camera);
 
-                // Render into the buffer.
                 renderer.render(&mut buffer);
 
-                // Send the buffer to the compositor.
                 buffer.present().unwrap();
-                // println!("fps: {:.2}", 1.0 / start.elapsed().as_secs_f32());
 
                 surface.window().request_redraw();
             }
@@ -290,7 +279,6 @@ impl FragmentShader for Fragment {
             if texture.has_texture {
                 let sampled_color = texture.sample(varying.tex_coord.0, varying.tex_coord.1);
 
-                // Alpha 测试：如果 alpha < 阈值，丢弃片段
                 let alpha_threshold = 0.1;
                 if (sampled_color.3 as f32 / 255.0) < alpha_threshold {
                     return None;
@@ -302,7 +290,6 @@ impl FragmentShader for Fragment {
                     b: sampled_color.2,
                 })
             } else {
-                // 没有纹理，使用材质颜色
                 Some(Color {
                     r: (varying.color.0 * 255.0) as u8,
                     g: (varying.color.1 * 255.0) as u8,
@@ -310,7 +297,6 @@ impl FragmentShader for Fragment {
                 })
             }
         } else {
-            // 否则使用材质颜色
             Some(Color {
                 r: (varying.color.0 * 255.0) as u8,
                 g: (varying.color.1 * 255.0) as u8,
@@ -553,7 +539,6 @@ fn load_model(path: &str) -> (Vertexs, Vec<Texture>) {
 
     let obj_dir = Path::new(path).parent().unwrap_or(Path::new(""));
 
-    // 首先计算模型的边界框以进行归一化
     let mut min_x = f32::MAX;
     let mut min_y = f32::MAX;
     let mut min_z = f32::MAX;
