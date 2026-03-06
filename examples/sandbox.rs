@@ -1,7 +1,14 @@
+use std::f32;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
+use mini_renderer::graphics::color::IntoColor;
+use mini_renderer::graphics::primitive::PrimitiveAssembler;
+use mini_renderer::graphics::rasterizer::TriangleRasterizer;
+use mini_renderer::math::Vec4;
+use mini_renderer::pipeline::Pipeline;
+use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -176,17 +183,113 @@ impl Renderer {
         }
     }
 
-    fn render<F>(&mut self, buffer: &mut Buffer, draw: F)
+    fn render<F>(&mut self, buffer: &mut Buffer, _draw: F)
     where
         F: Fn(&mut Self),
     {
-        draw(self);
+        // draw(self);
+
+        // let pixels = unsafe {
+        //     std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [softbuffer::Pixel]>(
+        //         &mut self.buffer[..],
+        //     )
+        // };
+        println!("====start====");
+
+        let mut pipeline = Pipeline::new(
+            Vertex,
+            Fragment,
+            TriangleRasterizer::new(self.width, self.height),
+            PrimitiveAssembler::new(
+                mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
+            ),
+        );
+
+        let vertexs = [
+            VertexInput {
+                vertex: (0.0, 0.5, 0.0),
+                varying: Some((1.0, 0.0, 0.0)),
+            },
+            VertexInput {
+                vertex: (0.5, -0.5, 0.0),
+                varying: Some((0.0, 1.0, 0.0)),
+            },
+            VertexInput {
+                vertex: (-0.5, -0.5, 0.0),
+                varying: Some((0.0, 0.0, 1.0)),
+            },
+            VertexInput {
+                vertex: (0.5, 0.75, -1.0),
+                varying: Some((1.0, 1.0, 1.0)),
+            },
+            VertexInput {
+                vertex: (0.3, -0.4, -0.25),
+                varying: Some((1.0, 1.0, 1.0)),
+            },
+            VertexInput {
+                vertex: (-0.75, -0.75, 1.0),
+                varying: Some((1.0, 1.0, 1.0)),
+            },
+        ];
 
         let pixels = unsafe {
-            std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [softbuffer::Pixel]>(
-                &mut self.buffer[..],
-            )
+            std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
+
+        let mut depth_buffer = vec![1.0; self.width * self.height];
+
+        pipeline.draw(&vertexs, &mut depth_buffer, pixels, self.width);
+
         buffer.pixels().swap_with_slice(pixels);
+
+        println!("====end====");
+    }
+}
+
+struct Vertex;
+struct Fragment;
+
+impl VertexShader for Vertex {
+    type Vertex = (f32, f32, f32);
+
+    type Varying = (f32, f32, f32);
+
+    fn vs_main(
+        &self,
+        _index: usize,
+        vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
+    ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
+        let VertexInput { vertex, varying } = vertex;
+        VertexOutput {
+            position: Vec4::new(vertex.0, vertex.1, vertex.2, 1.0),
+            varying: varying.unwrap(),
+        }
+    }
+}
+
+impl FragmentShader for Fragment {
+    type Varying = (f32, f32, f32);
+    type Output = Color;
+
+    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
+        Some(Color {
+            r: (varying.0 * 255.0) as u8,
+            g: (varying.1 * 255.0) as u8,
+            b: (varying.2 * 255.0) as u8,
+        })
+    }
+}
+
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl IntoColor for Color {
+    type Output = Pixel;
+
+    fn into_color(self) -> Self::Output {
+        Pixel::new_rgb(self.r, self.g, self.b)
     }
 }

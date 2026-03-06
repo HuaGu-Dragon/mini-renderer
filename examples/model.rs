@@ -119,7 +119,6 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-
                 let mut buffer = surface.next_buffer().unwrap();
 
                 controller.update_camera(&mut renderer.camera);
@@ -330,18 +329,11 @@ struct ColorOutput {
 }
 
 impl Varying for ColorOutput {
-    fn interpolate(v0: &Self, v1: &Self, v2: &Self, w0: f32, w1: f32, w2: f32) -> Self {
+    fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self {
         Self {
-            tex_coord: Varying::interpolate(
-                &v0.tex_coord,
-                &v1.tex_coord,
-                &v2.tex_coord,
-                w0,
-                w1,
-                w2,
-            ),
-            normal: Varying::interpolate(&v0.normal, &v1.normal, &v2.normal, w0, w1, w2),
-            color: Varying::interpolate(&v0.color, &v1.color, &v2.color, w0, w1, w2),
+            tex_coord: Varying::interpolate(v0.tex_coord, v1.tex_coord, v2.tex_coord, w0, w1, w2),
+            normal: Varying::interpolate(v0.normal, v1.normal, v2.normal, w0, w1, w2),
+            color: Varying::interpolate(v0.color, v1.color, v2.color, w0, w1, w2),
             texture_id: v0.texture_id,
         }
     }
