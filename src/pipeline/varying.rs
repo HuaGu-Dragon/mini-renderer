@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 pub trait Varying: Sized + Copy {
     /// Interpolate between three vertices using barycentric coordinates
     fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self;
@@ -5,6 +7,12 @@ pub trait Varying: Sized + Copy {
 
 impl Varying for () {
     fn interpolate(_v0: Self, _v1: Self, _v2: Self, _w0: f32, _w1: f32, _w2: f32) -> Self {}
+}
+
+impl<T> Varying for PhantomData<T> {
+    fn interpolate(_v0: Self, _v1: Self, _v2: Self, _w0: f32, _w1: f32, _w2: f32) -> Self {
+        PhantomData
+    }
 }
 
 macro_rules! impl_varying {

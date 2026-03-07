@@ -20,6 +20,8 @@ pub trait VertexShader {
         index: usize,
         vertex: &VertexInput<Self::Vertex, Self::Varying>,
     ) -> VertexOutput<Self::Varying>;
+
+    fn update(&mut self) {}
 }
 
 pub trait FragmentShader {
@@ -27,6 +29,8 @@ pub trait FragmentShader {
     type Output: IntoColor;
 
     fn fs_main(&self, varying: &Self::Varying) -> Option<Self::Output>;
+
+    fn update(&mut self) {}
 }
 
 pub trait ShaderProgram {
