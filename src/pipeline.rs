@@ -66,4 +66,38 @@ impl<V, F, R> Pipeline<V, F, R> {
             }
         });
     }
+
+    pub fn draw_indexed<Var, C>(
+        &mut self,
+        vertives: &[VertexInput<V::Vertex, V::Varying>],
+        indexed: &[usize],
+        depth_buffer: &mut [f32],
+        framebuffer: &mut [C::Output],
+        width: usize,
+    ) where
+        C: IntoColor,
+        V: VertexShader<Varying = Var>,
+        F: FragmentShader<Varying = Var, Output = C>,
+        R: Rasterizer<Var>,
+        Var: Varying + Debug,
+    {
+        let output = indexed
+            .iter()
+            .map(|&idx| self.vertex_shader.vs_main(idx, &vertives[idx]))
+            .collect::<Vec<_>>();
+
+        let assembled = self.assembler.assemble(&output[..]);
+
+        let fragments = self.rasterizer.rasterize(assembled);
+
+        fragments.for_each(|f| {
+            if f.depth < depth_buffer[f.x + f.y * width] {
+                let Some(output) = self.fragment_shader.fs_main(&f.varying) else {
+                    return;
+                };
+                framebuffer[f.x + f.y * width] = output.into_color();
+                depth_buffer[f.x + f.y * width] = f.depth;
+            }
+        });
+    }
 }
