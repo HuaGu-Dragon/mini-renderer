@@ -70,7 +70,7 @@ impl<V, F, R> Pipeline<V, F, R> {
     pub fn draw_indexed<Var, C>(
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
-        indexed: &[usize],
+        indexed: impl Iterator<Item = usize>,
         depth_buffer: &mut [f32],
         framebuffer: &mut [C::Output],
         width: usize,
@@ -82,8 +82,7 @@ impl<V, F, R> Pipeline<V, F, R> {
         Var: Varying + Debug,
     {
         let output = indexed
-            .iter()
-            .map(|&idx| self.vertex_shader.vs_main(idx, &vertives[idx]))
+            .map(|idx| self.vertex_shader.vs_main(idx, &vertives[idx]))
             .collect::<Vec<_>>();
 
         let assembled = self.assembler.assemble(&output[..]);
