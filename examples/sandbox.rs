@@ -199,7 +199,11 @@ impl Renderer {
         let mut pipeline = Pipeline::new(
             Vertex,
             Fragment,
-            TriangleRasterizer::new(self.width, self.height),
+            TriangleRasterizer::new(
+                self.width,
+                self.height,
+                mini_renderer::graphics::FrontFace::Ccw,
+            ),
             PrimitiveAssembler::new(
                 mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
             ),

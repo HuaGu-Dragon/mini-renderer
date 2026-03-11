@@ -1,5 +1,5 @@
 use crate::{
-    graphics::primitive::Primitive,
+    graphics::{FrontFace, primitive::Primitive},
     math::{Vec2, Vec4},
     pipeline::varying::Varying,
 };
@@ -23,11 +23,16 @@ pub trait Rasterizer<Var> {
 pub struct TriangleRasterizer {
     pub width: usize,
     pub height: usize,
+    pub front_face: FrontFace,
 }
 
 impl TriangleRasterizer {
-    pub fn new(width: usize, height: usize) -> Self {
-        Self { width, height }
+    pub fn new(width: usize, height: usize, front_face: FrontFace) -> Self {
+        Self {
+            width,
+            height,
+            front_face,
+        }
     }
 
     pub fn resize(&mut self, width: usize, height: usize) {
@@ -81,7 +86,12 @@ impl TriangleRasterizer {
             Vec2::new(v2.x, v2.y),
         );
 
-        if area <= 0.0 {
+        let should_cull = match self.front_face {
+            FrontFace::Ccw => area <= 0.0,
+            FrontFace::Cw => area >= 0.0,
+        };
+
+        if should_cull {
             return fragments;
         }
 
@@ -99,7 +109,13 @@ impl TriangleRasterizer {
 
                 let sum = weight0 + weight1 + weight2;
 
-                if w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0 {
+                let inside = if area > 0.0 {
+                    w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0
+                } else {
+                    w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0
+                };
+
+                if inside {
                     fragments.push(Fragment {
                         x: x as usize,
                         y: y as usize,

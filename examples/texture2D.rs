@@ -161,7 +161,7 @@ impl Renderer {
             Fragment {
                 buffer: diffuse_rgba,
             },
-            TriangleRasterizer::new(width, height),
+            TriangleRasterizer::new(width, height, mini_renderer::graphics::FrontFace::Ccw),
             PrimitiveAssembler::new(
                 mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
             ),

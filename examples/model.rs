@@ -174,7 +174,7 @@ impl Renderer {
         let pipeline = Pipeline::new(
             Vertex { camera },
             Fragment { textures },
-            TriangleRasterizer::new(width, height),
+            TriangleRasterizer::new(width, height, mini_renderer::graphics::FrontFace::Cw),
             PrimitiveAssembler::new(
                 mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
             ),
@@ -679,7 +679,6 @@ fn load_model(path: &str) -> (Vertexs, Vec<usize>, Vec<Texture>) {
                 break;
             }
             indices.push(vertex_offset + mesh.indices[tri_idx] as usize);
-            indices.push(vertex_offset + mesh.indices[tri_idx + 2] as usize);
             indices.push(vertex_offset + mesh.indices[tri_idx + 1] as usize);
             indices.push(vertex_offset + mesh.indices[tri_idx + 2] as usize);
         }
