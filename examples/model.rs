@@ -146,13 +146,14 @@ struct Renderer {
     pipeline: Pipeline<Vertex, Fragment, TriangleRasterizer>,
     camera: Camera,
     model_vertices: Vec<VertexInput<(f32, f32, f32), ColorOutput>>,
+    model_indices: Vec<usize>,
 }
 
 impl Renderer {
     fn new(width: usize, height: usize) -> Self {
         let mut buffer = Vec::with_capacity(width * height);
 
-        let (model_vertices, textures) = load_model("assets/wuwa/aemeath.obj");
+        let (model_vertices, model_indices, textures) = load_model("assets/wuwa/aemeath.obj");
 
         let camera = Camera {
             eye: (0.0, 1.0, 5.0).into(),
@@ -187,6 +188,7 @@ impl Renderer {
             pipeline,
             camera,
             model_vertices,
+            model_indices,
         }
     }
 
@@ -228,8 +230,9 @@ impl Renderer {
             std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
 
-        self.pipeline.draw(
+        self.pipeline.draw_indexed(
             &self.model_vertices,
+            self.model_indices.iter().copied(),
             &mut self.depth_buffer,
             pixels,
             self.width,
@@ -513,21 +516,18 @@ impl Texture {
 
 type Vertexs = Vec<VertexInput<(f32, f32, f32), ColorOutput>>;
 
-fn load_model(path: &str) -> (Vertexs, Vec<Texture>) {
-    let obj = tobj::load_obj(
-        path,
-        &tobj::LoadOptions {
-            single_index: true,
-            triangulate: true,
-            ..Default::default()
-        },
-    );
+fn load_model(path: &str) -> (Vertexs, Vec<usize>, Vec<Texture>) {
+    let obj = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS);
 
     let (models, materials) = obj.expect("failed to load model");
     let materials = materials.expect("Failed to load MTL file");
 
-    let mut vertices = Vec::new();
-    let mut textures = Vec::new();
+    let total_vertices: usize = models.iter().map(|m| m.mesh.positions.len() / 3).sum();
+    let total_indices: usize = models.iter().map(|m| m.mesh.indices.len()).sum();
+
+    let mut vertices = Vec::with_capacity(total_vertices);
+    let mut indices = Vec::with_capacity(total_indices);
+    let mut textures = Vec::with_capacity(materials.len().max(1));
 
     let obj_dir = Path::new(path).parent().unwrap_or(Path::new(""));
 
@@ -540,6 +540,7 @@ fn load_model(path: &str) -> (Vertexs, Vec<Texture>) {
 
     for model in &models {
         let mesh = &model.mesh;
+        assert!(mesh.positions.len() % 3 == 0);
         for i in (0..mesh.positions.len()).step_by(3) {
             let x = mesh.positions[i];
             let y = mesh.positions[i + 1];
@@ -612,84 +613,76 @@ fn load_model(path: &str) -> (Vertexs, Vec<Texture>) {
 
     for model in models {
         let mesh = &model.mesh;
+        let vertex_offset = vertices.len();
+
+        assert!(mesh.positions.len() % 3 == 0);
+        for vertex_idx in 0..mesh.positions.len() / 3 {
+            let i = vertex_idx * 3;
+            let position = (
+                (mesh.positions[i] - center_x) * scale_factor,
+                (mesh.positions[i + 1] - center_y) * scale_factor,
+                (mesh.positions[i + 2] - center_z) * scale_factor,
+            );
+
+            let material_id = mesh.material_id.unwrap_or(0);
+
+            let tex_coord = if !mesh.texcoords.is_empty() {
+                let tex_idx = vertex_idx * 2;
+                (mesh.texcoords[tex_idx], 1.0 - mesh.texcoords[tex_idx + 1])
+            } else {
+                (0.0, 0.0)
+            };
+
+            let normal = if !mesh.normals.is_empty() {
+                let norm_idx = vertex_idx * 3;
+                (
+                    mesh.normals[norm_idx],
+                    mesh.normals[norm_idx + 1],
+                    mesh.normals[norm_idx + 2],
+                )
+            } else {
+                (0.0, 1.0, 0.0)
+            };
+
+            let texture_id = if material_id < textures.len() {
+                material_id
+            } else {
+                0
+            };
+
+            let color = if material_id < materials.len() {
+                let mat = &materials[material_id];
+                if let Some(diffuse) = mat.diffuse {
+                    (diffuse[0], diffuse[1], diffuse[2])
+                } else {
+                    (1.0, 1.0, 1.0)
+                }
+            } else {
+                (1.0, 1.0, 1.0)
+            };
+
+            vertices.push(VertexInput {
+                vertex: position,
+                varying: Some(ColorOutput {
+                    tex_coord,
+                    normal,
+                    color,
+                    texture_id,
+                }),
+            });
+        }
+
+        assert!(mesh.indices.len() % 3 == 0);
 
         for tri_idx in (0..mesh.indices.len()).step_by(3) {
             if tri_idx + 2 >= mesh.indices.len() {
                 break;
             }
-
-            let indices_order = [
-                mesh.indices[tri_idx],
-                mesh.indices[tri_idx + 2],
-                mesh.indices[tri_idx + 1],
-            ];
-
-            for &index in &indices_order {
-                let i = index as usize;
-
-                let position = (
-                    (mesh.positions[i * 3] - center_x) * scale_factor,
-                    (mesh.positions[i * 3 + 1] - center_y) * scale_factor,
-                    (mesh.positions[i * 3 + 2] - center_z) * scale_factor,
-                );
-
-                let material_id = mesh.material_id.unwrap_or(0);
-
-                let tex_coord = if !mesh.texcoords.is_empty() {
-                    let tex_idx = i * 2;
-                    if tex_idx + 1 < mesh.texcoords.len() {
-                        (mesh.texcoords[tex_idx], 1.0 - mesh.texcoords[tex_idx + 1])
-                    } else {
-                        (0.0, 0.0)
-                    }
-                } else {
-                    (0.0, 0.0)
-                };
-
-                let normal = if !mesh.normals.is_empty() {
-                    let norm_idx = i * 3;
-                    if norm_idx + 2 < mesh.normals.len() {
-                        (
-                            mesh.normals[norm_idx],
-                            mesh.normals[norm_idx + 1],
-                            mesh.normals[norm_idx + 2],
-                        )
-                    } else {
-                        (0.0, 1.0, 0.0)
-                    }
-                } else {
-                    (0.0, 1.0, 0.0)
-                };
-
-                let texture_id = if material_id < textures.len() {
-                    material_id
-                } else {
-                    0
-                };
-
-                let color = if material_id < materials.len() {
-                    let mat = &materials[material_id];
-                    if let Some(diffuse) = mat.diffuse {
-                        (diffuse[0], diffuse[1], diffuse[2])
-                    } else {
-                        (1.0, 1.0, 1.0)
-                    }
-                } else {
-                    (1.0, 1.0, 1.0)
-                };
-
-                vertices.push(VertexInput {
-                    vertex: position,
-                    varying: Some(ColorOutput {
-                        tex_coord,
-                        normal,
-                        color,
-                        texture_id,
-                    }),
-                });
-            }
+            indices.push(vertex_offset + mesh.indices[tri_idx] as usize);
+            indices.push(vertex_offset + mesh.indices[tri_idx + 2] as usize);
+            indices.push(vertex_offset + mesh.indices[tri_idx + 1] as usize);
         }
     }
 
-    (vertices, textures)
+    (vertices, indices, textures)
 }
