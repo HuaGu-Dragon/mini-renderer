@@ -681,6 +681,7 @@ fn load_model(path: &str) -> (Vertexs, Vec<usize>, Vec<Texture>) {
             indices.push(vertex_offset + mesh.indices[tri_idx] as usize);
             indices.push(vertex_offset + mesh.indices[tri_idx + 2] as usize);
             indices.push(vertex_offset + mesh.indices[tri_idx + 1] as usize);
+            indices.push(vertex_offset + mesh.indices[tri_idx + 2] as usize);
         }
     }
 
