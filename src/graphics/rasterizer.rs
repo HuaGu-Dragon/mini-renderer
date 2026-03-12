@@ -56,6 +56,28 @@ impl TriangleRasterizer {
         (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
     }
 
+    fn should_cull_triangle(v0: Vec4, v1: Vec4, v2: Vec4) -> bool {
+        if v0.z < -v0.w && v1.z < -v1.w && v2.z < -v2.w {
+            return true;
+        }
+        if v0.z > v0.w && v1.z > v1.w && v2.z > v2.w {
+            return true;
+        }
+        if v0.x < -v0.w && v1.x < -v1.w && v2.x < -v2.w {
+            return true;
+        }
+        if v0.x > v0.w && v1.x > v1.w && v2.x > v2.w {
+            return true;
+        }
+        if v0.y < -v0.w && v1.y < -v1.w && v2.y < -v2.w {
+            return true;
+        }
+        if v0.y > v0.w && v1.y > v1.w && v2.y > v2.w {
+            return true;
+        }
+        false
+    }
+
     fn rasterize_triangle<Var>(
         &self,
         v0: Vec4,
@@ -154,6 +176,14 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     {
         primitive.flat_map(|p| match p {
             Primitive::Triangle(vertex_output, vertex_output1, vertex_output2) => {
+                if Self::should_cull_triangle(
+                    vertex_output.position,
+                    vertex_output1.position,
+                    vertex_output2.position,
+                ) {
+                    return Vec::new();
+                }
+
                 let v0 = self.clip_to_screen(vertex_output.position);
                 let v1 = self.clip_to_screen(vertex_output1.position);
                 let v2 = self.clip_to_screen(vertex_output2.position);
