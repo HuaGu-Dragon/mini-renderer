@@ -161,7 +161,7 @@ impl Renderer {
             up: Vec3::Y,
             aspect: width as f32 / height as f32,
             fovy: 45.0,
-            znear: 1.0,
+            znear: 0.1,
             zfar: 100.0,
         };
 
@@ -673,11 +673,7 @@ fn load_model(path: &str) -> (Vertexs, Vec<usize>, Vec<Texture>) {
         }
 
         assert!(mesh.indices.len() % 3 == 0);
-
         for tri_idx in (0..mesh.indices.len()).step_by(3) {
-            if tri_idx + 2 >= mesh.indices.len() {
-                break;
-            }
             indices.push(vertex_offset + mesh.indices[tri_idx] as usize);
             indices.push(vertex_offset + mesh.indices[tri_idx + 1] as usize);
             indices.push(vertex_offset + mesh.indices[tri_idx + 2] as usize);
