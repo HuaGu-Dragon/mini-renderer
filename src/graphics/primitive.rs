@@ -1,4 +1,17 @@
-use crate::{graphics::topology::PrimitiveTopology, pipeline::shader::VertexOutput};
+use crate::{
+    graphics::{Face, FrontFace, topology::PrimitiveTopology},
+    pipeline::shader::VertexOutput,
+};
+
+pub struct PrimitiveState {
+    pub topology: PrimitiveTopology,
+    // strip_index_format: None,
+    pub front_face: FrontFace,
+    pub cull_mode: Option<Face>,
+    // polygon_mode: wgpu::PolygonMode::Fill,
+    // unclipped_depth: false,
+    // conservative: false,
+}
 
 pub enum Primitive<'a, Var> {
     // Point,

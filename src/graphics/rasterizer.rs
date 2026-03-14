@@ -15,38 +15,29 @@ pub trait Rasterizer<Var> {
     fn rasterize<'a>(
         &self,
         primitive: impl Iterator<Item = Primitive<'a, Var>>,
+        width: usize,
+        height: usize,
     ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying + 'a;
 }
 
 pub struct TriangleRasterizer {
-    pub width: usize,
-    pub height: usize,
     pub front_face: FrontFace,
 }
 
 impl TriangleRasterizer {
-    pub fn new(width: usize, height: usize, front_face: FrontFace) -> Self {
-        Self {
-            width,
-            height,
-            front_face,
-        }
+    pub fn new(front_face: FrontFace) -> Self {
+        Self { front_face }
     }
 
-    pub fn resize(&mut self, width: usize, height: usize) {
-        self.width = width;
-        self.height = height;
-    }
-
-    fn clip_to_screen(&self, clip_pos: Vec4) -> Vec4 {
+    fn clip_to_screen(&self, clip_pos: Vec4, width: usize, height: usize) -> Vec4 {
         let ndc_x = clip_pos.x / clip_pos.w;
         let ndc_y = clip_pos.y / clip_pos.w;
         let ndc_z = clip_pos.z / clip_pos.w;
 
-        let screen_x = (ndc_x + 1.) * 0.5 * self.width as f32;
-        let screen_y = (1. - ndc_y) * 0.5 * self.height as f32;
+        let screen_x = (ndc_x + 1.) * 0.5 * width as f32;
+        let screen_y = (1. - ndc_y) * 0.5 * height as f32;
         let screen_z = (ndc_z + 1.) * 0.5;
 
         Vec4::new(screen_x, screen_y, screen_z, clip_pos.w)
@@ -86,6 +77,8 @@ impl TriangleRasterizer {
         v0_varying: &Var,
         v1_varying: &Var,
         v2_varying: &Var,
+        width: usize,
+        height: usize,
     ) -> Vec<Fragment<Var>>
     where
         Var: Varying,
@@ -98,9 +91,9 @@ impl TriangleRasterizer {
         let max_y = v0.y.max(v1.y).max(v2.y).ceil() as i32;
 
         let min_x = min_x.max(0);
-        let max_x = max_x.min(self.width as i32);
+        let max_x = max_x.min(width as i32);
         let min_y = min_y.max(0);
-        let max_y = max_y.min(self.height as i32);
+        let max_y = max_y.min(height as i32);
 
         let area = Self::edge_function(
             Vec2::new(v0.x, v0.y),
@@ -170,11 +163,13 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     fn rasterize<'a>(
         &self,
         primitive: impl Iterator<Item = Primitive<'a, Var>>,
+        width: usize,
+        height: usize,
     ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying + 'a,
     {
-        primitive.flat_map(|p| match p {
+        primitive.flat_map(move |p| match p {
             Primitive::Triangle(vertex_output, vertex_output1, vertex_output2) => {
                 if Self::should_cull_triangle(
                     vertex_output.position,
@@ -184,9 +179,9 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
                     return Vec::new();
                 }
 
-                let v0 = self.clip_to_screen(vertex_output.position);
-                let v1 = self.clip_to_screen(vertex_output1.position);
-                let v2 = self.clip_to_screen(vertex_output2.position);
+                let v0 = self.clip_to_screen(vertex_output.position, width, height);
+                let v1 = self.clip_to_screen(vertex_output1.position, width, height);
+                let v2 = self.clip_to_screen(vertex_output2.position, width, height);
 
                 self.rasterize_triangle(
                     v0,
@@ -195,6 +190,8 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
                     &vertex_output.varying,
                     &vertex_output1.varying,
                     &vertex_output2.varying,
+                    width,
+                    height,
                 )
             }
         })

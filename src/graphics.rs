@@ -7,3 +7,8 @@ pub enum FrontFace {
     Ccw,
     Cw,
 }
+
+pub enum Face {
+    Front,
+    Back,
+}

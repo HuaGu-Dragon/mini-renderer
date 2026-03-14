@@ -42,5 +42,5 @@ pub trait ShaderProgram {
 
     fn fragment_shader(
         &self,
-    ) -> impl FragmentShader<Varying = Self::Varying, Output = Option<Self::Output>>;
+    ) -> impl FragmentShader<Varying = Self::Varying, Output = Self::Output>;
 }

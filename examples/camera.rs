@@ -186,7 +186,7 @@ impl Renderer {
             Fragment {
                 buffer: diffuse_rgba,
             },
-            TriangleRasterizer::new(width, height, mini_renderer::graphics::FrontFace::Ccw),
+            TriangleRasterizer::new(mini_renderer::graphics::FrontFace::Ccw),
             PrimitiveAssembler::new(
                 mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
             ),
@@ -217,7 +217,6 @@ impl Renderer {
         self.pipeline.vertex_shader.camera.aspect = width as f32 / height as f32;
         self.buffer = buffer;
         self.depth_buffer.resize(width * height, 1.0);
-        self.pipeline.rasterizer.resize(width, height);
     }
 
     fn render(&mut self, buffer: &mut Buffer) {
@@ -283,8 +282,13 @@ impl Renderer {
             std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
 
-        self.pipeline
-            .draw(&vertexs, &mut self.depth_buffer, pixels, self.width);
+        self.pipeline.draw(
+            &vertexs,
+            &mut self.depth_buffer,
+            pixels,
+            self.width,
+            self.height,
+        );
 
         buffer.pixels().copy_from_slice(pixels);
     }

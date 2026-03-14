@@ -159,11 +159,7 @@ impl Renderer {
         let mut pipeline = Pipeline::new(
             Vertex,
             Fragment,
-            TriangleRasterizer::new(
-                self.width,
-                self.height,
-                mini_renderer::graphics::FrontFace::Ccw,
-            ),
+            TriangleRasterizer::new(mini_renderer::graphics::FrontFace::Ccw),
             PrimitiveAssembler::new(
                 mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
             ),
@@ -190,7 +186,7 @@ impl Renderer {
 
         let mut depth_buffer = vec![1.0; self.width * self.height];
 
-        pipeline.draw(&vertexs, &mut depth_buffer, pixels, self.width);
+        pipeline.draw(&vertexs, &mut depth_buffer, pixels, self.width, self.height);
 
         buffer.pixels().swap_with_slice(pixels);
     }

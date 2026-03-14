@@ -39,6 +39,7 @@ impl<V, F, R> Pipeline<V, F, R> {
         depth_buffer: &mut [f32],
         framebuffer: &mut [C::Output],
         width: usize,
+        height: usize,
     ) where
         C: IntoColor,
         V: VertexShader<Varying = Var>,
@@ -57,7 +58,7 @@ impl<V, F, R> Pipeline<V, F, R> {
 
         let assembled = self.assembler.assemble(&output[..]);
 
-        let fragments = self.rasterizer.rasterize(assembled);
+        let fragments = self.rasterizer.rasterize(assembled, width, height);
 
         fragments.for_each(|f| {
             if f.depth < depth_buffer[f.x + f.y * width] {
@@ -77,6 +78,7 @@ impl<V, F, R> Pipeline<V, F, R> {
         depth_buffer: &mut [f32],
         framebuffer: &mut [C::Output],
         width: usize,
+        height: usize,
     ) where
         C: IntoColor,
         V: VertexShader<Varying = Var>,
@@ -93,7 +95,7 @@ impl<V, F, R> Pipeline<V, F, R> {
 
         let assembled = self.assembler.assemble(&output[..]);
 
-        let fragments = self.rasterizer.rasterize(assembled);
+        let fragments = self.rasterizer.rasterize(assembled, width, height);
 
         fragments.for_each(|f| {
             if f.depth < depth_buffer[f.x + f.y * width] {
