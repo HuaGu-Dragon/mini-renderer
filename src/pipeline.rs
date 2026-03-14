@@ -46,6 +46,9 @@ impl<V, F, R> Pipeline<V, F, R> {
         R: Rasterizer<Var>,
         Var: Varying + Debug,
     {
+        self.vertex_shader.update();
+        self.fragment_shader.update();
+
         let output = vertives
             .iter()
             .enumerate()
@@ -81,6 +84,9 @@ impl<V, F, R> Pipeline<V, F, R> {
         R: Rasterizer<Var>,
         Var: Varying + Debug,
     {
+        self.vertex_shader.update();
+        self.fragment_shader.update();
+
         let output = indexed
             .map(|idx| self.vertex_shader.vs_main(idx, &vertives[idx]))
             .collect::<Vec<_>>();
