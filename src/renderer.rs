@@ -1,9 +1,5 @@
 use crate::{
-    graphics::{
-        primitive::{PrimitiveAssembler, PrimitiveState},
-        rasterizer::{Rasterizer, TriangleRasterizer},
-        topology::PrimitiveTopology,
-    },
+    graphics::{primitive::PrimitiveState, topology::Primitive},
     pipeline::{
         Pipeline,
         shader::{FragmentShader, ShaderProgram, VertexShader},
@@ -11,27 +7,25 @@ use crate::{
 };
 
 #[allow(clippy::type_complexity)]
-pub fn create_render_pipeline<S>(
+pub fn create_render_pipeline<T, S>(
     shader: &S,
-    primitive: PrimitiveState,
+    primitive: PrimitiveState<T>,
 ) -> Pipeline<
+    T,
+    T::Rasterizer,
     impl VertexShader<Vertex = S::Vertex, Varying = S::Varying>,
     impl FragmentShader<Varying = S::Varying, Output = S::Output>,
-    // TODO: change it to an trait or something else? to support different rasterizers and not need heap allocations
-    impl Rasterizer<S::Varying>,
 >
 where
+    T: Primitive<S::Varying>,
     S: ShaderProgram,
 {
-    let assembler = PrimitiveAssembler::new(primitive.topology);
-    let rasterizer = match primitive.topology {
-        PrimitiveTopology::TriangleList => TriangleRasterizer::new(primitive.front_face),
-    };
+    let rasterizer = T::rasterizer(primitive.front_face);
 
     let vertex_shader = shader.vertex_shader();
     let fragment_shader = shader.fragment_shader();
 
-    Pipeline::new(vertex_shader, fragment_shader, rasterizer, assembler)
+    Pipeline::new(rasterizer, vertex_shader, fragment_shader)
 }
 
 pub struct Renderer {

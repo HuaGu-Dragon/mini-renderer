@@ -1,7 +1,7 @@
 use crate::{
-    graphics::{FrontFace, primitive::Primitive},
+    graphics::FrontFace,
     math::{Vec2, Vec4},
-    pipeline::varying::Varying,
+    pipeline::{shader::VertexOutput, varying::Varying},
 };
 
 pub struct Fragment<V> {
@@ -12,14 +12,22 @@ pub struct Fragment<V> {
 }
 
 pub trait Rasterizer<Var> {
-    fn rasterize<'a>(
+    // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
+    // type Primitive<'a, V>
+    // where
+    //     V: 'a;
+    type Primitive<V>;
+
+    fn new(front_face: FrontFace) -> Self;
+
+    fn rasterize(
         &self,
-        primitive: impl Iterator<Item = Primitive<'a, Var>>,
+        primitive: impl Iterator<Item = Self::Primitive<Var>>,
         width: usize,
         height: usize,
     ) -> impl Iterator<Item = Fragment<Var>>
     where
-        Var: Varying + 'a;
+        Var: Varying;
 }
 
 pub struct TriangleRasterizer {
@@ -69,6 +77,8 @@ impl TriangleRasterizer {
         false
     }
 
+    // TODO: simplify inputs
+    #[allow(clippy::too_many_arguments)]
     fn rasterize_triangle<Var>(
         &self,
         v0: Vec4,
@@ -160,17 +170,27 @@ impl TriangleRasterizer {
 }
 
 impl<Var> Rasterizer<Var> for TriangleRasterizer {
-    fn rasterize<'a>(
+    // type Primitive<'a, V>
+    //     = &'a [VertexOutput<V>; 3]
+    // where
+    //     V: 'a;
+    type Primitive<V> = [VertexOutput<V>; 3];
+
+    fn new(front_face: FrontFace) -> Self {
+        Self { front_face }
+    }
+
+    fn rasterize(
         &self,
-        primitive: impl Iterator<Item = Primitive<'a, Var>>,
+        primitive: impl Iterator<Item = Self::Primitive<Var>>,
         width: usize,
         height: usize,
     ) -> impl Iterator<Item = Fragment<Var>>
     where
-        Var: Varying + 'a,
+        Var: Varying,
     {
         primitive.flat_map(move |p| match p {
-            Primitive::Triangle(vertex_output, vertex_output1, vertex_output2) => {
+            [vertex_output, vertex_output1, vertex_output2] => {
                 if Self::should_cull_triangle(
                     vertex_output.position,
                     vertex_output1.position,

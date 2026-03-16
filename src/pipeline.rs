@@ -1,7 +1,7 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    graphics::{color::IntoColor, primitive::PrimitiveAssembler, rasterizer::Rasterizer},
+    graphics::{rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
         shader::{FragmentShader, VertexInput, VertexShader},
         varying::Varying,
@@ -11,25 +11,20 @@ use crate::{
 pub mod shader;
 pub mod varying;
 
-pub struct Pipeline<V, F, R> {
+pub struct Pipeline<T, R, V, F> {
+    _marker: PhantomData<T>,
+    pub rasterizer: R,
     pub vertex_shader: V,
     fragment_shader: F,
-    pub rasterizer: R,
-    assembler: PrimitiveAssembler,
 }
 
-impl<V, F, R> Pipeline<V, F, R> {
-    pub fn new(
-        vertex_shader: V,
-        fragment_shader: F,
-        rasterizer: R,
-        assembler: PrimitiveAssembler,
-    ) -> Self {
+impl<T, R, V, F> Pipeline<T, R, V, F> {
+    pub fn new(rasterizer: R, vertex_shader: V, fragment_shader: F) -> Self {
         Self {
+            _marker: PhantomData,
+            rasterizer,
             vertex_shader,
             fragment_shader,
-            rasterizer,
-            assembler,
         }
     }
 
@@ -37,14 +32,20 @@ impl<V, F, R> Pipeline<V, F, R> {
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
         depth_buffer: &mut [f32],
-        framebuffer: &mut [C::Output],
+        framebuffer: &mut [C],
         width: usize,
         height: usize,
     ) where
-        C: IntoColor,
+        // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
+        // T: for<'a> Primitive<
+        //         Var,
+        //         Rasterizer = R,
+        //         Primitive<'a, Var> = <R as Rasterizer<Var>>::Primitive<'a, Var>,
+        //     >,
+        T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
+        R: Rasterizer<Var>,
         V: VertexShader<Varying = Var>,
         F: FragmentShader<Varying = Var, Output = C>,
-        R: Rasterizer<Var>,
         Var: Varying + Debug,
     {
         self.vertex_shader.update();
@@ -56,7 +57,7 @@ impl<V, F, R> Pipeline<V, F, R> {
             .map(|v| self.vertex_shader.vs_main(v.0, v.1))
             .collect::<Vec<_>>();
 
-        let assembled = self.assembler.assemble(&output[..]);
+        let assembled = T::assemble(&output[..]);
 
         let fragments = self.rasterizer.rasterize(assembled, width, height);
 
@@ -65,7 +66,7 @@ impl<V, F, R> Pipeline<V, F, R> {
                 let Some(output) = self.fragment_shader.fs_main(&f.varying) else {
                     return;
                 };
-                framebuffer[f.x + f.y * width] = output.into_color();
+                framebuffer[f.x + f.y * width] = output;
                 depth_buffer[f.x + f.y * width] = f.depth;
             }
         });
@@ -76,14 +77,20 @@ impl<V, F, R> Pipeline<V, F, R> {
         vertives: &[VertexInput<V::Vertex, V::Varying>],
         indexed: impl Iterator<Item = usize>,
         depth_buffer: &mut [f32],
-        framebuffer: &mut [C::Output],
+        framebuffer: &mut [C],
         width: usize,
         height: usize,
     ) where
-        C: IntoColor,
+        // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
+        // T: for<'a> Primitive<
+        //         Var,
+        //         Rasterizer = R,
+        //         Primitive<'a, Var> = <R as Rasterizer<Var>>::Primitive<'a, Var>,
+        //     >,
+        T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
+        R: Rasterizer<Var>,
         V: VertexShader<Varying = Var>,
         F: FragmentShader<Varying = Var, Output = C>,
-        R: Rasterizer<Var>,
         Var: Varying + Debug,
     {
         self.vertex_shader.update();
@@ -93,7 +100,7 @@ impl<V, F, R> Pipeline<V, F, R> {
             .map(|idx| self.vertex_shader.vs_main(idx, &vertives[idx]))
             .collect::<Vec<_>>();
 
-        let assembled = self.assembler.assemble(&output[..]);
+        let assembled = T::assemble(&output[..]);
 
         let fragments = self.rasterizer.rasterize(assembled, width, height);
 
@@ -102,7 +109,7 @@ impl<V, F, R> Pipeline<V, F, R> {
                 let Some(output) = self.fragment_shader.fs_main(&f.varying) else {
                     return;
                 };
-                framebuffer[f.x + f.y * width] = output.into_color();
+                framebuffer[f.x + f.y * width] = output;
                 depth_buffer[f.x + f.y * width] = f.depth;
             }
         });

@@ -1,11 +1,11 @@
-use crate::{graphics::color::IntoColor, math::Vec4};
+use crate::math::Vec4;
 
 pub struct VertexInput<Var, Varying> {
     pub vertex: Var,
     pub varying: Option<Varying>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VertexOutput<Var> {
     pub position: Vec4,
     pub varying: Var,
@@ -26,7 +26,7 @@ pub trait VertexShader {
 
 pub trait FragmentShader {
     type Varying;
-    type Output: IntoColor;
+    type Output;
 
     fn fs_main(&self, varying: &Self::Varying) -> Option<Self::Output>;
 
@@ -36,7 +36,7 @@ pub trait FragmentShader {
 pub trait ShaderProgram {
     type Vertex;
     type Varying;
-    type Output: IntoColor;
+    type Output;
 
     fn vertex_shader(&self) -> impl VertexShader<Vertex = Self::Vertex, Varying = Self::Varying>;
 

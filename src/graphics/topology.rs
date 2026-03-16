@@ -1,15 +1,81 @@
+use std::marker::PhantomData;
+
+use crate::{
+    graphics::{
+        FrontFace,
+        rasterizer::{Rasterizer, TriangleRasterizer},
+    },
+    pipeline::{shader::VertexOutput, varying::Varying},
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PrimitiveTopology {
-    // PointList,
-
-    // LineList,
-
-    // LineStrip,
-    TriangleList,
-    // TriangleStrip,
-
-    // TriangleFan,
+pub struct PrimitiveTopology<T> {
+    _marker: PhantomData<T>,
 }
+
+impl PrimitiveTopology<TrangleList> {
+    pub fn trangle_list() -> PrimitiveTopology<TrangleList> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct TrangleList;
+
+pub trait Primitive<Var> {
+    type Rasterizer: Rasterizer<Var>;
+    // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
+    // type Primitive<'a, V>
+    // where
+    //     V: 'a,
+    //     Var: 'a;
+    type Primitive<V>;
+
+    fn rasterizer(front_face: FrontFace) -> Self::Rasterizer {
+        Self::Rasterizer::new(front_face)
+    }
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    // -> impl Iterator<Item = Self::Primitive<'a, Var>>
+    where
+        Var: Varying;
+}
+
+impl<Var> Primitive<Var> for TrangleList {
+    type Rasterizer = TriangleRasterizer;
+    type Primitive<V> = [VertexOutput<V>; 3];
+    // type Primitive<'a, V>
+    //     = &'a [VertexOutput<V>; 3]
+    // where
+    //     V: 'a,
+    //     Var: 'a;
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        let (chunks, _) = vertexs.as_chunks::<3>();
+        chunks.iter().copied()
+    }
+}
+
+// impl<Var> Primitive<Var> for TrangleList {
+//     type Rasterizer = TriangleRasterizer;
+//     type Primitive = (&VertexOutput<Var>, &VertexOutput<Var>, &VertexOutput<Var>);
+// }
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// pub enum PrimitiveTopology {
+//     PointList,
+
+//     LineList,
+
+//     LineStrip,
+//     TriangleList,
+//     TriangleStrip,
+
+//     TriangleFan,
+// }
 
 // impl PrimitiveTopology {
 //     pub fn min_vertices(&self) -> usize {
