@@ -2,28 +2,21 @@ use crate::{
     graphics::{primitive::PrimitiveState, topology::Primitive},
     pipeline::{
         Pipeline,
-        shader::{FragmentShader, ShaderProgram, VertexShader},
+        shader::{FragmentShader, VertexShader},
     },
 };
 
-#[allow(clippy::type_complexity)]
-pub fn create_render_pipeline<T, S>(
-    shader: &S,
+pub fn create_render_pipeline<T, VS, FS>(
+    vertex_shader: VS,
+    fragment_shader: FS,
     primitive: PrimitiveState<T>,
-) -> Pipeline<
-    T,
-    T::Rasterizer,
-    impl VertexShader<Vertex = S::Vertex, Varying = S::Varying>,
-    impl FragmentShader<Varying = S::Varying, Output = S::Output>,
->
+) -> Pipeline<T, T::Rasterizer, VS, FS>
 where
-    T: Primitive<S::Varying>,
-    S: ShaderProgram,
+    T: Primitive<VS::Varying>,
+    VS: VertexShader,
+    FS: FragmentShader<Varying = VS::Varying>,
 {
     let rasterizer = T::rasterizer(primitive.front_face);
-
-    let vertex_shader = shader.vertex_shader();
-    let fragment_shader = shader.fragment_shader();
 
     Pipeline::new(rasterizer, vertex_shader, fragment_shader)
 }

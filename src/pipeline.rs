@@ -13,8 +13,8 @@ pub mod varying;
 
 pub struct Pipeline<T, R, V, F> {
     _marker: PhantomData<T>,
-    pub rasterizer: R,
-    pub vertex_shader: V,
+    rasterizer: R,
+    vertex_shader: V,
     fragment_shader: F,
 }
 

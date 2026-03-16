@@ -32,15 +32,3 @@ pub trait FragmentShader {
 
     fn update(&mut self) {}
 }
-
-pub trait ShaderProgram {
-    type Vertex;
-    type Varying;
-    type Output;
-
-    fn vertex_shader(&self) -> impl VertexShader<Vertex = Self::Vertex, Varying = Self::Varying>;
-
-    fn fragment_shader(
-        &self,
-    ) -> impl FragmentShader<Varying = Self::Varying, Output = Self::Output>;
-}
