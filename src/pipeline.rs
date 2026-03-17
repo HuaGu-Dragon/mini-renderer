@@ -28,13 +28,14 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         }
     }
 
-    pub fn draw<Var, C>(
+    pub fn draw<Var, C, U>(
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
         depth_buffer: &mut [f32],
         framebuffer: &mut [C],
         width: usize,
         height: usize,
+        uniform: &U,
     ) where
         // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
         // T: for<'a> Primitive<
@@ -44,17 +45,14 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         //     >,
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var>,
-        V: VertexShader<Varying = Var>,
-        F: FragmentShader<Varying = Var, Output = C>,
+        V: VertexShader<Varying = Var, Uniform = U>,
+        F: FragmentShader<Varying = Var, Uniform = U, Output = C>,
         Var: Varying + Debug,
     {
-        self.vertex_shader.update();
-        self.fragment_shader.update();
-
         let output = vertives
             .iter()
             .enumerate()
-            .map(|v| self.vertex_shader.vs_main(v.0, v.1))
+            .map(|v| self.vertex_shader.vs_main(v.0, v.1, uniform))
             .collect::<Vec<_>>();
 
         let assembled = T::assemble(&output[..]);
@@ -63,7 +61,7 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
 
         fragments.for_each(|f| {
             if f.depth < depth_buffer[f.x + f.y * width] {
-                let Some(output) = self.fragment_shader.fs_main(&f.varying) else {
+                let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
                 framebuffer[f.x + f.y * width] = output;
@@ -72,7 +70,8 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         });
     }
 
-    pub fn draw_indexed<Var, C>(
+    #[allow(clippy::too_many_arguments)]
+    pub fn draw_indexed<Var, C, U>(
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
         indexed: impl Iterator<Item = usize>,
@@ -80,6 +79,7 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         framebuffer: &mut [C],
         width: usize,
         height: usize,
+        uniform: &U,
     ) where
         // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
         // T: for<'a> Primitive<
@@ -89,15 +89,12 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         //     >,
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var>,
-        V: VertexShader<Varying = Var>,
-        F: FragmentShader<Varying = Var, Output = C>,
+        V: VertexShader<Varying = Var, Uniform = U>,
+        F: FragmentShader<Varying = Var, Uniform = U, Output = C>,
         Var: Varying + Debug,
     {
-        self.vertex_shader.update();
-        self.fragment_shader.update();
-
         let output = indexed
-            .map(|idx| self.vertex_shader.vs_main(idx, &vertives[idx]))
+            .map(|idx| self.vertex_shader.vs_main(idx, &vertives[idx], uniform))
             .collect::<Vec<_>>();
 
         let assembled = T::assemble(&output[..]);
@@ -106,7 +103,7 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
 
         fragments.for_each(|f| {
             if f.depth < depth_buffer[f.x + f.y * width] {
-                let Some(output) = self.fragment_shader.fs_main(&f.varying) else {
+                let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
                 framebuffer[f.x + f.y * width] = output;

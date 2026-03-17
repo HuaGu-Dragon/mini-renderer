@@ -9,11 +9,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PrimitiveTopology<T> {
+pub struct PrimitiveTopology<T = ()> {
     _marker: PhantomData<T>,
 }
 
-impl PrimitiveTopology<TrangleList> {
+impl PrimitiveTopology {
     pub fn trangle_list() -> PrimitiveTopology<TrangleList> {
         PrimitiveTopology {
             _marker: PhantomData,

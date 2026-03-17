@@ -14,21 +14,20 @@ pub struct VertexOutput<Var> {
 pub trait VertexShader {
     type Vertex;
     type Varying;
+    type Uniform;
 
     fn vs_main(
         &self,
         index: usize,
         vertex: &VertexInput<Self::Vertex, Self::Varying>,
+        uniform: &Self::Uniform,
     ) -> VertexOutput<Self::Varying>;
-
-    fn update(&mut self) {}
 }
 
 pub trait FragmentShader {
     type Varying;
     type Output;
+    type Uniform;
 
-    fn fs_main(&self, varying: &Self::Varying) -> Option<Self::Output>;
-
-    fn update(&mut self) {}
+    fn fs_main(&self, varying: &Self::Varying, uniform: &Self::Uniform) -> Option<Self::Output>;
 }
