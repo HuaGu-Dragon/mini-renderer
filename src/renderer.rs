@@ -33,9 +33,10 @@ pub struct RenderPass<'pass> {
     render: &'pass Renderer,
 }
 
-pub struct BoundPipeline<'a, T, R, V, F> {
+pub struct BoundPipeline<'a, T, R, V, F, D = ()> {
     render: &'a Renderer,
     pipeline: &'a mut Pipeline<T, R, V, F>,
+    depth_buffer: D,
 }
 
 impl Renderer {
@@ -61,32 +62,46 @@ impl<'pass> RenderPass<'pass> {
     pub fn set_pipeline<'a, T, R, V, F>(
         &'a self,
         pipeline: &'a mut Pipeline<T, R, V, F>,
-    ) -> BoundPipeline<'a, T, R, V, F> {
+    ) -> BoundPipeline<'a, T, R, V, F, ()> {
         BoundPipeline {
             render: self.render,
             pipeline,
+            depth_buffer: (),
         }
     }
 }
 
-impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F> {
+impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, ()> {
+    pub fn with_depth(
+        self,
+        depth_buffer: &'a mut [f32],
+    ) -> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
+        BoundPipeline {
+            render: self.render,
+            pipeline: self.pipeline,
+            depth_buffer,
+        }
+    }
+}
+
+impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
     pub fn draw<Var, U, C>(
         &mut self,
         vertices: &[VertexInput<V::Vertex, V::Varying>],
-        // instances: Range<u32>,
         framebuffer: &mut [C],
-        depth_buffer: &mut [f32],
         uniform: &U,
     ) where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
-        R: Rasterizer<Var>,
-        V: VertexShader<Varying = Var, Uniform = U>,
-        F: FragmentShader<Varying = Var, Uniform = U, Output = C>,
-        Var: Varying + Debug,
+        R: Rasterizer<Var> + Sync,
+        V: VertexShader<Varying = Var, Uniform = U> + Sync,
+        F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
+        Var: Varying + Debug + Send + Sync,
+        U: Sync,
+        C: Send,
     {
         self.pipeline.draw(
             vertices,
-            depth_buffer,
+            self.depth_buffer,
             framebuffer,
             self.render.width,
             self.render.height,
@@ -97,22 +112,22 @@ impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F> {
     pub fn draw_indexed<Var, U, C>(
         &mut self,
         vertices: &[VertexInput<V::Vertex, V::Varying>],
-        // instances: Range<u32>,
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [C],
-        depth_buffer: &mut [f32],
         uniform: &U,
     ) where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
-        R: Rasterizer<Var>,
-        V: VertexShader<Varying = Var, Uniform = U>,
-        F: FragmentShader<Varying = Var, Uniform = U, Output = C>,
-        Var: Varying + Debug,
+        R: Rasterizer<Var> + Sync,
+        V: VertexShader<Varying = Var, Uniform = U> + Sync,
+        F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
+        Var: Varying + Debug + Send + Sync,
+        U: Sync,
+        C: Send,
     {
         self.pipeline.draw_indexed(
             vertices,
             indexed,
-            depth_buffer,
+            self.depth_buffer,
             framebuffer,
             self.render.width,
             self.render.height,

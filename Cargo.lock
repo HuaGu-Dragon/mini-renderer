@@ -905,6 +905,7 @@ version = "0.1.0"
 dependencies = [
  "glam",
  "image",
+ "rayon",
  "softbuffer",
  "tobj",
  "winit",

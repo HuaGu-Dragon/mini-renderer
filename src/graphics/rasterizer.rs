@@ -28,6 +28,19 @@ pub trait Rasterizer<Var> {
     ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying;
+
+    fn rasterize_tile(
+        &self,
+        primitive: impl Iterator<Item = Self::Primitive<Var>>,
+        width: usize,
+        height: usize,
+        tile_x: usize,
+        tile_y: usize,
+        tile_width: usize,
+        tile_height: usize,
+    ) -> impl Iterator<Item = Fragment<Var>>
+    where
+        Var: Varying;
 }
 
 pub struct TriangleRasterizer {
@@ -77,33 +90,29 @@ impl TriangleRasterizer {
         false
     }
 
-    // TODO: simplify inputs
-    #[allow(clippy::too_many_arguments)]
     fn rasterize_triangle<Var>(
         &self,
-        v0: Vec4,
-        v1: Vec4,
-        v2: Vec4,
-        v0_varying: &Var,
-        v1_varying: &Var,
-        v2_varying: &Var,
-        width: usize,
-        height: usize,
+        positions: [Vec4; 3],
+        varyings: [&Var; 3],
+        tile_bounds: [usize; 4],
     ) -> Vec<Fragment<Var>>
     where
         Var: Varying,
     {
         let mut fragments = Vec::new();
+        let [v0, v1, v2] = positions;
+        let [v0_varying, v1_varying, v2_varying] = varyings;
+        let [tile_x, tile_y, tile_width, tile_height] = tile_bounds;
 
         let min_x = v0.x.min(v1.x).min(v2.x).floor() as i32;
         let max_x = v0.x.max(v1.x).max(v2.x).ceil() as i32;
         let min_y = v0.y.min(v1.y).min(v2.y).floor() as i32;
         let max_y = v0.y.max(v1.y).max(v2.y).ceil() as i32;
 
-        let min_x = min_x.max(0);
-        let max_x = max_x.min(width as i32);
-        let min_y = min_y.max(0);
-        let max_y = max_y.min(height as i32);
+        let min_x = min_x.max(tile_x as i32);
+        let max_x = max_x.min((tile_x + tile_width) as i32);
+        let min_y = min_y.max(tile_y as i32);
+        let max_y = max_y.min((tile_y + tile_height) as i32);
 
         let area = Self::edge_function(
             Vec2::new(v0.x, v0.y),
@@ -189,6 +198,22 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     where
         Var: Varying,
     {
+        self.rasterize_tile(primitive, width, height, 0, 0, width, height)
+    }
+
+    fn rasterize_tile(
+        &self,
+        primitive: impl Iterator<Item = Self::Primitive<Var>>,
+        width: usize,
+        height: usize,
+        tile_x: usize,
+        tile_y: usize,
+        tile_width: usize,
+        tile_height: usize,
+    ) -> impl Iterator<Item = Fragment<Var>>
+    where
+        Var: Varying,
+    {
         primitive.flat_map(move |p| match p {
             [vertex_output, vertex_output1, vertex_output2] => {
                 if Self::should_cull_triangle(
@@ -204,14 +229,13 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
                 let v2 = self.clip_to_screen(vertex_output2.position, width, height);
 
                 self.rasterize_triangle(
-                    v0,
-                    v1,
-                    v2,
-                    &vertex_output.varying,
-                    &vertex_output1.varying,
-                    &vertex_output2.varying,
-                    width,
-                    height,
+                    [v0, v1, v2],
+                    [
+                        &vertex_output.varying,
+                        &vertex_output1.varying,
+                        &vertex_output2.varying,
+                    ],
+                    [tile_x, tile_y, tile_width, tile_height],
                 )
             }
         })
