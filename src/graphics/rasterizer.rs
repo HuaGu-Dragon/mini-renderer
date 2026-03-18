@@ -93,13 +93,12 @@ impl TriangleRasterizer {
     fn rasterize_triangle<Var>(
         &self,
         positions: [Vec4; 3],
-        varyings: [&Var; 3],
+        varyings: [Var; 3],
         tile_bounds: [usize; 4],
-    ) -> Vec<Fragment<Var>>
+    ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying,
     {
-        let mut fragments = Vec::new();
         let [v0, v1, v2] = positions;
         let [v0_varying, v1_varying, v2_varying] = varyings;
         let [tile_x, tile_y, tile_width, tile_height] = tile_bounds;
@@ -125,56 +124,102 @@ impl TriangleRasterizer {
             FrontFace::Cw => area >= 0.0,
         };
 
-        if should_cull {
-            return fragments;
+        let mut w0_row = 0.0;
+        let mut w1_row = 0.0;
+        let mut w2_row = 0.0;
+
+        let mut step_x0 = 0.0;
+        let mut step_x1 = 0.0;
+        let mut step_x2 = 0.0;
+
+        let mut step_y0 = 0.0;
+        let mut step_y1 = 0.0;
+        let mut step_y2 = 0.0;
+
+        let mut inv_area = 0.0;
+        let mut inv_w0 = 0.0;
+        let mut inv_w1 = 0.0;
+        let mut inv_w2 = 0.0;
+
+        if !should_cull {
+            step_x0 = v1.y - v2.y;
+            step_x1 = v2.y - v0.y;
+            step_x2 = v0.y - v1.y;
+
+            step_y0 = v2.x - v1.x;
+            step_y1 = v0.x - v2.x;
+            step_y2 = v1.x - v0.x;
+
+            let p_row = Vec2::new(min_x as f32 + 0.5, min_y as f32 + 0.5);
+
+            w0_row = Self::edge_function(Vec2::new(v1.x, v1.y), Vec2::new(v2.x, v2.y), p_row);
+            w1_row = Self::edge_function(Vec2::new(v2.x, v2.y), Vec2::new(v0.x, v0.y), p_row);
+            w2_row = Self::edge_function(Vec2::new(v0.x, v0.y), Vec2::new(v1.x, v1.y), p_row);
+
+            inv_area = 1.0 / area;
+            inv_w0 = 1.0 / v0.w;
+            inv_w1 = 1.0 / v1.w;
+            inv_w2 = 1.0 / v2.w;
         }
 
-        for y in min_y..max_y {
-            for x in min_x..max_x {
-                let p = Vec2::new(x as f32 + 0.5, y as f32 + 0.5);
+        let x_range = min_x..max_x;
+        let y_range = min_y..max_y;
 
-                let w0 = Self::edge_function(Vec2::new(v1.x, v1.y), Vec2::new(v2.x, v2.y), p);
-                let w1 = Self::edge_function(Vec2::new(v2.x, v2.y), Vec2::new(v0.x, v0.y), p);
-                let w2 = Self::edge_function(Vec2::new(v0.x, v0.y), Vec2::new(v1.x, v1.y), p);
+        y_range.flat_map(move |y| {
+            let mut w0 = w0_row;
+            let mut w1 = w1_row;
+            let mut w2 = w2_row;
 
-                let weight0 = (w0 / area) / v0.w;
-                let weight1 = (w1 / area) / v1.w;
-                let weight2 = (w2 / area) / v2.w;
+            w0_row += step_y0;
+            w1_row += step_y1;
+            w2_row += step_y2;
 
-                let sum = weight0 + weight1 + weight2;
+            x_range.clone().filter_map(move |x| {
+                let current_w0 = w0;
+                let current_w1 = w1;
+                let current_w2 = w2;
 
-                let inside = if area > 0.0 {
-                    w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0
-                } else {
-                    w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0
-                };
+                w0 += step_x0;
+                w1 += step_x1;
+                w2 += step_x2;
+
+                if should_cull {
+                    return None;
+                }
+
+                let inside = (current_w0 * area >= 0.0)
+                    && (current_w1 * area >= 0.0)
+                    && (current_w2 * area >= 0.0);
 
                 if inside {
-                    fragments.push(Fragment {
+                    let alpha = current_w0 * inv_area;
+                    let beta = current_w1 * inv_area;
+                    let gamma = current_w2 * inv_area;
+
+                    let pc_w0 = alpha * inv_w0;
+                    let pc_w1 = beta * inv_w1;
+                    let pc_w2 = gamma * inv_w2;
+                    let inv_w = pc_w0 + pc_w1 + pc_w2;
+                    let inv_pc_sum = 1.0 / inv_w;
+
+                    Some(Fragment {
                         x: x as usize,
                         y: y as usize,
-                        depth: Varying::interpolate(
-                            v0.z,
-                            v1.z,
-                            v2.z,
-                            weight0 / sum,
-                            weight1 / sum,
-                            weight2 / sum,
-                        ),
+                        depth: Varying::interpolate(v0.z, v1.z, v2.z, alpha, beta, gamma),
                         varying: Varying::interpolate(
-                            *v0_varying,
-                            *v1_varying,
-                            *v2_varying,
-                            weight0 / sum,
-                            weight1 / sum,
-                            weight2 / sum,
+                            v0_varying,
+                            v1_varying,
+                            v2_varying,
+                            pc_w0 * inv_pc_sum,
+                            pc_w1 * inv_pc_sum,
+                            pc_w2 * inv_pc_sum,
                         ),
-                    });
+                    })
+                } else {
+                    None
                 }
-            }
-        }
-
-        fragments
+            })
+        })
     }
 }
 
@@ -214,30 +259,30 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     where
         Var: Varying,
     {
-        primitive.flat_map(move |p| match p {
-            [vertex_output, vertex_output1, vertex_output2] => {
+        primitive
+            .filter_map(move |[vertex_output, vertex_output1, vertex_output2]| {
                 if Self::should_cull_triangle(
                     vertex_output.position,
                     vertex_output1.position,
                     vertex_output2.position,
                 ) {
-                    return Vec::new();
+                    None
+                } else {
+                    let v0 = self.clip_to_screen(vertex_output.position, width, height);
+                    let v1 = self.clip_to_screen(vertex_output1.position, width, height);
+                    let v2 = self.clip_to_screen(vertex_output2.position, width, height);
+
+                    Some(self.rasterize_triangle(
+                        [v0, v1, v2],
+                        [
+                            vertex_output.varying,
+                            vertex_output1.varying,
+                            vertex_output2.varying,
+                        ],
+                        [tile_x, tile_y, tile_width, tile_height],
+                    ))
                 }
-
-                let v0 = self.clip_to_screen(vertex_output.position, width, height);
-                let v1 = self.clip_to_screen(vertex_output1.position, width, height);
-                let v2 = self.clip_to_screen(vertex_output2.position, width, height);
-
-                self.rasterize_triangle(
-                    [v0, v1, v2],
-                    [
-                        &vertex_output.varying,
-                        &vertex_output1.varying,
-                        &vertex_output2.varying,
-                    ],
-                    [tile_x, tile_y, tile_width, tile_height],
-                )
-            }
-        })
+            })
+            .flatten()
     }
 }
