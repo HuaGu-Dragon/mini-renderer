@@ -191,12 +191,11 @@ impl Renderer {
 
         let render = mini_renderer::renderer::Renderer::new(self.width, self.height);
 
-        render.begin_render_pass().set_pipeline(&mut pipeline).draw(
-            &vertexs,
-            pixels,
-            &mut depth_buffer,
-            &time.elapsed().as_secs_f32(),
-        );
+        render
+            .begin_render_pass()
+            .set_pipeline(&mut pipeline)
+            .with_depth(&mut depth_buffer)
+            .draw(&vertexs, pixels, &time.elapsed().as_secs_f32());
         // pipeline.draw(
         //     &vertexs,
         //     &mut depth_buffer,

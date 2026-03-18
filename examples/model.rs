@@ -231,11 +231,11 @@ impl Renderer {
         self.render
             .begin_render_pass()
             .set_pipeline(&mut self.pipeline)
+            .with_depth(&mut self.depth_buffer)
             .draw_indexed(
                 &self.model_vertices,
                 self.model_indices.iter().copied(),
                 pixels,
-                &mut self.depth_buffer,
                 &self.camera,
             );
 
