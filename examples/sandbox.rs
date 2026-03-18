@@ -3,11 +3,9 @@ use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
-use mini_renderer::graphics::color::IntoColor;
-use mini_renderer::graphics::primitive::PrimitiveAssembler;
-use mini_renderer::graphics::rasterizer::TriangleRasterizer;
+use mini_renderer::graphics::primitive::PrimitiveState;
+use mini_renderer::graphics::topology::PrimitiveTopology;
 use mini_renderer::math::Vec4;
-use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
@@ -196,13 +194,14 @@ impl Renderer {
         // };
         println!("====start====");
 
-        let mut pipeline = Pipeline::new(
+        let mut pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            TriangleRasterizer::new(mini_renderer::graphics::FrontFace::Ccw),
-            PrimitiveAssembler::new(
-                mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
-            ),
+            PrimitiveState {
+                topology: PrimitiveTopology::trangle_list(),
+                front_face: mini_renderer::graphics::FrontFace::Ccw,
+                cull_mode: None,
+            },
         );
 
         let vertexs = [
@@ -238,7 +237,14 @@ impl Renderer {
 
         let mut depth_buffer = vec![1.0; self.width * self.height];
 
-        pipeline.draw(&vertexs, &mut depth_buffer, pixels, self.width, self.height);
+        pipeline.draw(
+            &vertexs,
+            &mut depth_buffer,
+            pixels,
+            self.width,
+            self.height,
+            &(),
+        );
 
         buffer.pixels().swap_with_slice(pixels);
 
@@ -251,13 +257,14 @@ struct Fragment;
 
 impl VertexShader for Vertex {
     type Vertex = (f32, f32, f32);
-
     type Varying = (f32, f32, f32);
+    type Uniform = ();
 
     fn vs_main(
         &self,
         _index: usize,
         vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
+        _uniform: &Self::Uniform,
     ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
         let VertexInput { vertex, varying } = vertex;
         VertexOutput {
@@ -269,27 +276,14 @@ impl VertexShader for Vertex {
 
 impl FragmentShader for Fragment {
     type Varying = (f32, f32, f32);
-    type Output = Color;
-
-    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
-        Some(Color {
-            r: (varying.0 * 255.0) as u8,
-            g: (varying.1 * 255.0) as u8,
-            b: (varying.2 * 255.0) as u8,
-        })
-    }
-}
-
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl IntoColor for Color {
     type Output = Pixel;
+    type Uniform = ();
 
-    fn into_color(self) -> Self::Output {
-        Pixel::new_rgb(self.r, self.g, self.b)
+    fn fs_main(&self, varying: &Self::Varying, _uniform: &Self::Uniform) -> Option<Pixel> {
+        Some(Pixel::new_rgb(
+            (varying.0 * 255.0) as u8,
+            (varying.1 * 255.0) as u8,
+            (varying.2 * 255.0) as u8,
+        ))
     }
 }

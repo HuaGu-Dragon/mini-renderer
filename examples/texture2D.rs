@@ -4,9 +4,8 @@ use std::num::NonZeroU32;
 use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
-use mini_renderer::graphics::color::IntoColor;
-use mini_renderer::graphics::primitive::PrimitiveAssembler;
 use mini_renderer::graphics::rasterizer::TriangleRasterizer;
+use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
@@ -140,7 +139,7 @@ struct Renderer {
     height: usize,
     buffer: Vec<MaybeUninit<Pixel>>,
     depth_buffer: Vec<f32>,
-    pipeline: Pipeline<Vertex, Fragment, TriangleRasterizer>,
+    pipeline: Pipeline<TrangleList, TriangleRasterizer, Vertex, Fragment>,
 }
 
 impl Renderer {
@@ -156,15 +155,16 @@ impl Renderer {
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgb32f();
 
-        let pipeline = Pipeline::new(
+        let pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment {
                 buffer: diffuse_rgba,
             },
-            TriangleRasterizer::new(mini_renderer::graphics::FrontFace::Ccw),
-            PrimitiveAssembler::new(
-                mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
-            ),
+            mini_renderer::graphics::primitive::PrimitiveState {
+                topology: PrimitiveTopology::trangle_list(),
+                front_face: mini_renderer::graphics::FrontFace::Ccw,
+                cull_mode: None,
+            },
         );
 
         Self {
@@ -260,6 +260,7 @@ impl Renderer {
             pixels,
             self.width,
             self.height,
+            &(),
         );
 
         buffer.pixels().copy_from_slice(pixels);
@@ -267,20 +268,22 @@ impl Renderer {
 }
 
 struct Vertex;
+
 struct Fragment {
     buffer: ImageBuffer<Rgb<f32>, Vec<f32>>,
 }
 
 impl VertexShader for Vertex {
     type Vertex = (f32, f32, f32);
-
     type Varying = ColorOutput;
+    type Uniform = ();
 
     fn vs_main(
         &self,
         _index: usize,
-        vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
-    ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
+        vertex: &VertexInput<Self::Vertex, Self::Varying>,
+        _uniform: &Self::Uniform,
+    ) -> VertexOutput<Self::Varying> {
         let VertexInput { vertex, varying } = vertex;
         VertexOutput {
             position: Vec4::new(vertex.0, vertex.1, vertex.2, 1.0),
@@ -291,9 +294,10 @@ impl VertexShader for Vertex {
 
 impl FragmentShader for Fragment {
     type Varying = ColorOutput;
-    type Output = Color;
+    type Output = Pixel;
+    type Uniform = ();
 
-    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
+    fn fs_main(&self, varying: &Self::Varying, _uniform: &Self::Uniform) -> Option<Pixel> {
         let (u, v) = varying.tex_coord;
 
         let x = (u * (self.buffer.width() - 1) as f32) as u32;
@@ -304,26 +308,11 @@ impl FragmentShader for Fragment {
 
         let pixel = self.buffer.get_pixel(x, y);
 
-        Some(Color {
-            r: ((pixel[0] * 0.7 + varying.color.0 * 0.3) * 255.0) as u8,
-            g: ((pixel[1] * 0.7 + varying.color.1 * 0.3) * 255.0) as u8,
-            b: ((pixel[2] * 0.7 + varying.color.2 * 0.3) * 255.0) as u8,
-        })
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl IntoColor for Color {
-    type Output = Pixel;
-
-    fn into_color(self) -> Self::Output {
-        Pixel::new_rgb(self.r, self.g, self.b)
+        Some(Pixel::new_rgb(
+            ((pixel[0] * 0.7 + varying.color.0 * 0.3) * 255.0) as u8,
+            ((pixel[1] * 0.7 + varying.color.1 * 0.3) * 255.0) as u8,
+            ((pixel[2] * 0.7 + varying.color.2 * 0.3) * 255.0) as u8,
+        ))
     }
 }
 

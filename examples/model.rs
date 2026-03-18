@@ -5,9 +5,9 @@ use std::path::Path;
 use std::rc::Rc;
 
 use image::DynamicImage;
-use mini_renderer::graphics::color::IntoColor;
-use mini_renderer::graphics::primitive::PrimitiveAssembler;
+use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::rasterizer::TriangleRasterizer;
+use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::{Vec3, Vec4};
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
@@ -139,11 +139,10 @@ impl ApplicationHandler for App {
 }
 
 struct Renderer {
-    width: usize,
-    height: usize,
+    render: mini_renderer::renderer::Renderer,
     buffer: Vec<MaybeUninit<Pixel>>,
     depth_buffer: Vec<f32>,
-    pipeline: Pipeline<Vertex, Fragment, TriangleRasterizer>,
+    pipeline: Pipeline<TrangleList, TriangleRasterizer, Vertex, Fragment>,
     camera: Camera,
     model_vertices: Vec<VertexInput<(f32, f32, f32), ColorOutput>>,
     model_indices: Vec<usize>,
@@ -171,18 +170,20 @@ impl Renderer {
 
         let depth_buffer = vec![1.0; width * height];
 
-        let pipeline = Pipeline::new(
-            Vertex { camera },
+        let pipeline = mini_renderer::renderer::create_render_pipeline(
+            Vertex,
             Fragment { textures },
-            TriangleRasterizer::new(mini_renderer::graphics::FrontFace::Cw),
-            PrimitiveAssembler::new(
-                mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
-            ),
+            PrimitiveState {
+                topology: PrimitiveTopology::trangle_list(),
+                front_face: mini_renderer::graphics::FrontFace::Cw,
+                cull_mode: None,
+            },
         );
 
+        let renderer = mini_renderer::renderer::Renderer::new(width, height);
+
         Self {
-            width,
-            height,
+            render: renderer,
             buffer,
             depth_buffer,
             pipeline,
@@ -193,18 +194,18 @@ impl Renderer {
     }
 
     fn resize(&mut self, width: usize, height: usize) {
-        if width == self.width && height == self.height {
+        if width == self.render.width && height == self.render.height {
             return;
         }
 
-        self.width = width;
-        self.height = height;
+        self.render.width = width;
+        self.render.height = height;
         let mut buffer = Vec::with_capacity(width * height);
         unsafe {
             buffer.set_len(width * height);
         }
 
-        self.pipeline.vertex_shader.camera.aspect = width as f32 / height as f32;
+        self.camera.aspect = width as f32 / height as f32;
         self.camera.aspect = width as f32 / height as f32;
         self.buffer = buffer;
         self.depth_buffer.resize(width * height, 1.0);
@@ -223,28 +224,36 @@ impl Renderer {
         pixels.fill(Pixel::new_rgb(0, 0, 0));
         self.depth_buffer.fill(1.0);
 
-        self.pipeline.vertex_shader.camera = self.camera;
-
         let pixels = unsafe {
             std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
 
-        self.pipeline.draw_indexed(
-            &self.model_vertices,
-            self.model_indices.iter().copied(),
-            &mut self.depth_buffer,
-            pixels,
-            self.width,
-            self.height,
-        );
+        self.render
+            .begin_render_pass()
+            .set_pipeline(&mut self.pipeline)
+            .draw_indexed(
+                &self.model_vertices,
+                self.model_indices.iter().copied(),
+                pixels,
+                &mut self.depth_buffer,
+                &self.camera,
+            );
+
+        // self.pipeline.draw_indexed(
+        //     &self.model_vertices,
+        //     self.model_indices.iter().copied(),
+        //     &mut self.depth_buffer,
+        //     pixels,
+        //     self.width,
+        //     self.height,
+        //     &self.camera,
+        // );
 
         buffer.pixels().copy_from_slice(pixels);
     }
 }
 
-struct Vertex {
-    camera: Camera,
-}
+struct Vertex;
 
 struct Fragment {
     textures: Vec<Texture>,
@@ -252,16 +261,17 @@ struct Fragment {
 
 impl VertexShader for Vertex {
     type Vertex = (f32, f32, f32);
-
     type Varying = ColorOutput;
+    type Uniform = Camera;
 
     fn vs_main(
         &self,
         _index: usize,
         vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
+        uniform: &Self::Uniform,
     ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
         let VertexInput { vertex, varying } = vertex;
-        let camera = &self.camera;
+        let camera = uniform;
         let position =
             camera.build_view_projection_matrix() * Vec4::new(vertex.0, vertex.1, vertex.2, 1.0);
         VertexOutput {
@@ -273,9 +283,10 @@ impl VertexShader for Vertex {
 
 impl FragmentShader for Fragment {
     type Varying = ColorOutput;
-    type Output = Color;
+    type Uniform = Camera;
+    type Output = Pixel;
 
-    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
+    fn fs_main(&self, varying: &Self::Varying, _uniform: &Self::Uniform) -> Option<Pixel> {
         if varying.texture_id < self.textures.len() {
             let texture = &self.textures[varying.texture_id];
             if texture.has_texture {
@@ -286,40 +297,25 @@ impl FragmentShader for Fragment {
                     return None;
                 }
 
-                Some(Color {
-                    r: sampled_color.0,
-                    g: sampled_color.1,
-                    b: sampled_color.2,
-                })
+                Some(Pixel::new_rgb(
+                    sampled_color.0,
+                    sampled_color.1,
+                    sampled_color.2,
+                ))
             } else {
-                Some(Color {
-                    r: (varying.color.0 * 255.0) as u8,
-                    g: (varying.color.1 * 255.0) as u8,
-                    b: (varying.color.2 * 255.0) as u8,
-                })
+                Some(Pixel::new_rgb(
+                    (varying.color.0 * 255.0) as u8,
+                    (varying.color.1 * 255.0) as u8,
+                    (varying.color.2 * 255.0) as u8,
+                ))
             }
         } else {
-            Some(Color {
-                r: (varying.color.0 * 255.0) as u8,
-                g: (varying.color.1 * 255.0) as u8,
-                b: (varying.color.2 * 255.0) as u8,
-            })
+            Some(Pixel::new_rgb(
+                (varying.color.0 * 255.0) as u8,
+                (varying.color.1 * 255.0) as u8,
+                (varying.color.2 * 255.0) as u8,
+            ))
         }
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl IntoColor for Color {
-    type Output = Pixel;
-
-    fn into_color(self) -> Self::Output {
-        Pixel::new_rgb(self.r, self.g, self.b)
     }
 }
 

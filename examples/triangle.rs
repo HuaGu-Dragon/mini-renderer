@@ -2,12 +2,11 @@ use std::f32;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::rc::Rc;
+use std::time::Instant;
 
-use mini_renderer::graphics::color::IntoColor;
-use mini_renderer::graphics::primitive::PrimitiveAssembler;
-use mini_renderer::graphics::rasterizer::TriangleRasterizer;
+use mini_renderer::graphics::primitive::PrimitiveState;
+use mini_renderer::graphics::topology::PrimitiveTopology;
 use mini_renderer::math::Vec4;
-use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
@@ -39,6 +38,7 @@ enum AppState {
     },
     Running {
         surface: Surface<OwnedDisplayHandle, Rc<Window>>,
+        time: std::time::Instant,
     },
 }
 
@@ -72,13 +72,14 @@ impl ApplicationHandler for App {
             // Resize surface
             surface.resize(width, height).unwrap();
         }
+        let time = Instant::now();
 
-        self.state = AppState::Running { surface };
+        self.state = AppState::Running { surface, time };
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         // Drop the surface.
-        let AppState::Running { surface } = &mut self.state else {
+        let AppState::Running { surface, .. } = &mut self.state else {
             unreachable!("got resumed event while not running");
         };
         let window = surface.window().clone();
@@ -91,7 +92,7 @@ impl ApplicationHandler for App {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let AppState::Running { surface } = &mut self.state else {
+        let AppState::Running { surface, time } = &mut self.state else {
             unreachable!("got window event while suspended");
         };
 
@@ -120,7 +121,7 @@ impl ApplicationHandler for App {
                     buffer.height().get() as usize,
                 );
 
-                renderer.render(&mut buffer);
+                renderer.render(&mut buffer, time);
 
                 // Send the buffer to the compositor.
                 buffer.present().unwrap();
@@ -148,6 +149,7 @@ impl Renderer {
         unsafe {
             buffer.set_len(width * height);
         }
+
         Self {
             width,
             height,
@@ -155,14 +157,15 @@ impl Renderer {
         }
     }
 
-    fn render(&mut self, buffer: &mut Buffer) {
-        let mut pipeline = Pipeline::new(
+    fn render(&mut self, buffer: &mut Buffer, time: &Instant) {
+        let mut pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            TriangleRasterizer::new(mini_renderer::graphics::FrontFace::Ccw),
-            PrimitiveAssembler::new(
-                mini_renderer::graphics::topology::PrimitiveTopology::TriangleList,
-            ),
+            PrimitiveState {
+                topology: PrimitiveTopology::trangle_list(),
+                front_face: mini_renderer::graphics::FrontFace::Ccw,
+                cull_mode: None,
+            },
         );
 
         let vertexs = [
@@ -186,7 +189,22 @@ impl Renderer {
 
         let mut depth_buffer = vec![1.0; self.width * self.height];
 
-        pipeline.draw(&vertexs, &mut depth_buffer, pixels, self.width, self.height);
+        let render = mini_renderer::renderer::Renderer::new(self.width, self.height);
+
+        render.begin_render_pass().set_pipeline(&mut pipeline).draw(
+            &vertexs,
+            pixels,
+            &mut depth_buffer,
+            &time.elapsed().as_secs_f32(),
+        );
+        // pipeline.draw(
+        //     &vertexs,
+        //     &mut depth_buffer,
+        //     pixels,
+        //     self.width,
+        //     self.height,
+        //     &(),
+        // );
 
         buffer.pixels().swap_with_slice(pixels);
     }
@@ -197,14 +215,15 @@ struct Fragment;
 
 impl VertexShader for Vertex {
     type Vertex = (f32, f32, f32);
-
     type Varying = (f32, f32, f32);
+    type Uniform = f32;
 
     fn vs_main(
         &self,
         _index: usize,
-        vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
-    ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
+        vertex: &VertexInput<Self::Vertex, Self::Varying>,
+        _uniform: &Self::Uniform,
+    ) -> VertexOutput<Self::Varying> {
         let VertexInput { vertex, varying } = vertex;
         VertexOutput {
             position: Vec4::new(vertex.0, vertex.1, vertex.2, 1.0),
@@ -215,27 +234,14 @@ impl VertexShader for Vertex {
 
 impl FragmentShader for Fragment {
     type Varying = (f32, f32, f32);
-    type Output = Color;
-
-    fn fs_main(&self, varying: &Self::Varying) -> Option<Color> {
-        Some(Color {
-            r: (varying.0 * 255.0) as u8,
-            g: (varying.1 * 255.0) as u8,
-            b: (varying.2 * 255.0) as u8,
-        })
-    }
-}
-
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl IntoColor for Color {
     type Output = Pixel;
+    type Uniform = f32;
 
-    fn into_color(self) -> Self::Output {
-        Pixel::new_rgb(self.r, self.g, self.b)
+    fn fs_main(&self, varying: &Self::Varying, uniform: &Self::Uniform) -> Option<Pixel> {
+        Some(Pixel::new_rgb(
+            ((varying.0 + uniform).sin() * 255.0) as u8,
+            ((varying.1 + uniform).sin() * 255.0) as u8,
+            ((varying.2 + uniform).sin() * 255.0) as u8,
+        ))
     }
 }
