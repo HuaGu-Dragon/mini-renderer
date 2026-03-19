@@ -19,7 +19,7 @@ where
     VS: VertexShader,
     FS: FragmentShader<Varying = VS::Varying>,
 {
-    let rasterizer = T::rasterizer(primitive.front_face);
+    let rasterizer = T::rasterizer(primitive.front_face, primitive.cull_mode);
 
     Pipeline::new(rasterizer, vertex_shader, fragment_shader)
 }

@@ -32,8 +32,11 @@ pub trait Primitive<Var> {
     //     Var: 'a;
     type Primitive<V>;
 
-    fn rasterizer(front_face: FrontFace) -> Self::Rasterizer {
-        Self::Rasterizer::new(front_face)
+    fn rasterizer(
+        front_face: FrontFace,
+        cull_mode: Option<crate::graphics::Face>,
+    ) -> Self::Rasterizer {
+        Self::Rasterizer::new(front_face, cull_mode)
     }
 
     fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>

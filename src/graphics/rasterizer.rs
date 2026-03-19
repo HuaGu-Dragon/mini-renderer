@@ -1,5 +1,5 @@
 use crate::{
-    graphics::FrontFace,
+    graphics::{Face, FrontFace},
     math::{Vec2, Vec4},
     pipeline::{shader::VertexOutput, varying::Varying},
 };
@@ -18,7 +18,7 @@ pub trait Rasterizer<Var> {
     //     V: 'a;
     type Primitive<V>;
 
-    fn new(front_face: FrontFace) -> Self;
+    fn new(front_face: FrontFace, cull_mode: Option<Face>) -> Self;
 
     fn rasterize(
         &self,
@@ -27,7 +27,10 @@ pub trait Rasterizer<Var> {
         height: usize,
     ) -> impl Iterator<Item = Fragment<Var>>
     where
-        Var: Varying;
+        Var: Varying,
+    {
+        self.rasterize_tile(primitive, width, height, [0, 0, width, height])
+    }
 
     fn rasterize_tile(
         &self,
@@ -42,11 +45,15 @@ pub trait Rasterizer<Var> {
 
 pub struct TriangleRasterizer {
     pub front_face: FrontFace,
+    pub cull_mode: Option<Face>,
 }
 
 impl TriangleRasterizer {
-    pub fn new(front_face: FrontFace) -> Self {
-        Self { front_face }
+    pub fn new(front_face: FrontFace, cull_mode: Option<Face>) -> Self {
+        Self {
+            front_face,
+            cull_mode,
+        }
     }
 
     fn clip_to_screen(&self, clip_pos: Vec4, width: usize, height: usize) -> Vec4 {
@@ -116,10 +123,17 @@ impl TriangleRasterizer {
             Vec2::new(v2.x, v2.y),
         );
 
-        let should_cull = match self.front_face {
-            FrontFace::Ccw => area <= 0.0,
-            FrontFace::Cw => area >= 0.0,
+        let is_front_face = match self.front_face {
+            FrontFace::Ccw => area > 0.0,
+            FrontFace::Cw => area < 0.0,
         };
+
+        let should_cull = area == 0.0
+            || match self.cull_mode {
+                Some(crate::graphics::Face::Front) => is_front_face,
+                Some(crate::graphics::Face::Back) => !is_front_face,
+                None => false,
+            };
 
         let mut w0_row = 0.0;
         let mut w1_row = 0.0;
@@ -227,20 +241,11 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     //     V: 'a;
     type Primitive<V> = [VertexOutput<V>; 3];
 
-    fn new(front_face: FrontFace) -> Self {
-        Self { front_face }
-    }
-
-    fn rasterize(
-        &self,
-        primitive: impl Iterator<Item = Self::Primitive<Var>>,
-        width: usize,
-        height: usize,
-    ) -> impl Iterator<Item = Fragment<Var>>
-    where
-        Var: Varying,
-    {
-        self.rasterize_tile(primitive, width, height, [0, 0, width, height])
+    fn new(front_face: FrontFace, cull_mode: Option<crate::graphics::Face>) -> Self {
+        Self {
+            front_face,
+            cull_mode,
+        }
     }
 
     fn rasterize_tile(

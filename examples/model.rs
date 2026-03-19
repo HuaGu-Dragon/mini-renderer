@@ -178,7 +178,7 @@ impl Renderer {
             PrimitiveState {
                 topology: PrimitiveTopology::trangle_list(),
                 front_face: mini_renderer::graphics::FrontFace::Cw,
-                cull_mode: None,
+                cull_mode: Some(mini_renderer::graphics::Face::Back),
             },
         );
 
