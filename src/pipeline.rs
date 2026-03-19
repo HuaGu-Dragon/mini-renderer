@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use crate::{
     graphics::{rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
-        shader::{FragmentShader, VertexInput, VertexShader},
+        shader::{FragmentShader, VertexInput, VertexOutput, VertexShader},
         varying::Varying,
     },
 };
@@ -13,23 +13,28 @@ use crate::{
 pub mod shader;
 pub mod varying;
 
-pub struct Pipeline<T, R, V, F> {
+pub struct Pipeline<T, R, V: VertexShader, F> {
     _marker: PhantomData<T>,
     rasterizer: R,
     vertex_shader: V,
     fragment_shader: F,
+    vertex_cache: Vec<VertexOutput<V::Varying>>,
+    index_cache: Vec<usize>,
 }
 
-impl<T, R, V, F> Pipeline<T, R, V, F> {
+impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     pub fn new(rasterizer: R, vertex_shader: V, fragment_shader: F) -> Self {
         Self {
             _marker: PhantomData,
             rasterizer,
             vertex_shader,
             fragment_shader,
+            vertex_cache: Vec::new(),
+            index_cache: Vec::new(),
         }
     }
 
+    #[inline]
     pub fn draw<Var, C, U>(
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
@@ -46,12 +51,15 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         Var: Varying + Debug + Send + Sync,
         U: Sync,
         C: Send,
+        V::Vertex: Send + Sync,
     {
-        let output = vertives
-            .iter()
-            .enumerate()
-            .map(|v| self.vertex_shader.vs_main(v.0, v.1, uniform))
-            .collect::<Vec<_>>();
+        self.vertex_cache.clear();
+        self.vertex_cache.par_extend(
+            vertives
+                .par_iter()
+                .enumerate()
+                .map(|(i, v)| self.vertex_shader.vs_main(i, v, uniform)),
+        );
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
@@ -66,13 +74,10 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
                 let current_tile_height = (height - tile_y).min(tile_height);
 
                 let fragments = self.rasterizer.rasterize_tile(
-                    T::assemble(&output[..]),
+                    T::assemble(&self.vertex_cache[..]),
                     width,
                     height,
-                    0,
-                    tile_y,
-                    width,
-                    current_tile_height,
+                    [0, tile_y, width, current_tile_height],
                 );
 
                 fragments.for_each(|f| {
@@ -90,6 +95,7 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[inline]
     pub fn draw_indexed<Var, C, U>(
         &mut self,
         vertives: &[VertexInput<V::Vertex, V::Varying>],
@@ -107,10 +113,17 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
         Var: Varying + Debug + Send + Sync,
         U: Sync,
         C: Send,
+        V::Vertex: Send + Sync,
     {
-        let output = indexed
-            .map(|idx| self.vertex_shader.vs_main(idx, &vertives[idx], uniform))
-            .collect::<Vec<_>>();
+        self.index_cache.clear();
+        self.index_cache.extend(indexed);
+
+        self.vertex_cache.clear();
+        self.vertex_cache.par_extend(
+            self.index_cache
+                .par_iter()
+                .map(|&idx| self.vertex_shader.vs_main(idx, &vertives[idx], uniform)),
+        );
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
@@ -125,13 +138,10 @@ impl<T, R, V, F> Pipeline<T, R, V, F> {
                 let current_tile_height = (height - tile_y).min(tile_height);
 
                 let fragments = self.rasterizer.rasterize_tile(
-                    T::assemble(&output[..]),
+                    T::assemble(&self.vertex_cache[..]),
                     width,
                     height,
-                    0,
-                    tile_y,
-                    width,
-                    current_tile_height,
+                    [0, tile_y, width, current_tile_height],
                 );
 
                 fragments.for_each(|f| {

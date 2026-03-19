@@ -34,10 +34,7 @@ pub trait Rasterizer<Var> {
         primitive: impl Iterator<Item = Self::Primitive<Var>>,
         width: usize,
         height: usize,
-        tile_x: usize,
-        tile_y: usize,
-        tile_width: usize,
-        tile_height: usize,
+        tile_bounds: [usize; 4],
     ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying;
@@ -243,7 +240,7 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     where
         Var: Varying,
     {
-        self.rasterize_tile(primitive, width, height, 0, 0, width, height)
+        self.rasterize_tile(primitive, width, height, [0, 0, width, height])
     }
 
     fn rasterize_tile(
@@ -251,10 +248,7 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
         primitive: impl Iterator<Item = Self::Primitive<Var>>,
         width: usize,
         height: usize,
-        tile_x: usize,
-        tile_y: usize,
-        tile_width: usize,
-        tile_height: usize,
+        tile_bounds: [usize; 4],
     ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying,
@@ -279,7 +273,7 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
                             vertex_output1.varying,
                             vertex_output2.varying,
                         ],
-                        [tile_x, tile_y, tile_width, tile_height],
+                        tile_bounds,
                     ))
                 }
             })

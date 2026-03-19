@@ -33,7 +33,7 @@ pub struct RenderPass<'pass> {
     render: &'pass Renderer,
 }
 
-pub struct BoundPipeline<'a, T, R, V, F, D = ()> {
+pub struct BoundPipeline<'a, T, R, V: VertexShader, F, D = ()> {
     render: &'a Renderer,
     pipeline: &'a mut Pipeline<T, R, V, F>,
     depth_buffer: D,
@@ -59,7 +59,7 @@ impl Renderer {
 }
 
 impl<'pass> RenderPass<'pass> {
-    pub fn set_pipeline<'a, T, R, V, F>(
+    pub fn set_pipeline<'a, T, R, V: VertexShader, F>(
         &'a self,
         pipeline: &'a mut Pipeline<T, R, V, F>,
     ) -> BoundPipeline<'a, T, R, V, F, ()> {
@@ -71,7 +71,7 @@ impl<'pass> RenderPass<'pass> {
     }
 }
 
-impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, ()> {
+impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, ()> {
     pub fn with_depth(
         self,
         depth_buffer: &'a mut [f32],
@@ -84,7 +84,8 @@ impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, ()> {
     }
 }
 
-impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
+impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
+    #[inline]
     pub fn draw<Var, U, C>(
         &mut self,
         vertices: &[VertexInput<V::Vertex, V::Varying>],
@@ -98,6 +99,7 @@ impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
         Var: Varying + Debug + Send + Sync,
         U: Sync,
         C: Send,
+        V::Vertex: Send + Sync,
     {
         self.pipeline.draw(
             vertices,
@@ -109,6 +111,7 @@ impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
         );
     }
 
+    #[inline]
     pub fn draw_indexed<Var, U, C>(
         &mut self,
         vertices: &[VertexInput<V::Vertex, V::Varying>],
@@ -123,6 +126,7 @@ impl<'a, T, R, V, F> BoundPipeline<'a, T, R, V, F, &'a mut [f32]> {
         Var: Varying + Debug + Send + Sync,
         U: Sync,
         C: Send,
+        V::Vertex: Send + Sync,
     {
         self.pipeline.draw_indexed(
             vertices,

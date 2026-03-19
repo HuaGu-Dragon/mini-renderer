@@ -123,9 +123,11 @@ impl ApplicationHandler for App {
 
                 controller.update_camera(&mut renderer.camera);
 
+                let start = std::time::Instant::now();
                 renderer.render(&mut buffer);
 
                 buffer.present().unwrap();
+                println!("fps: {}", 1.0 / start.elapsed().as_secs_f32());
 
                 surface.window().request_redraw();
             }
@@ -238,16 +240,6 @@ impl Renderer {
                 pixels,
                 &self.camera,
             );
-
-        // self.pipeline.draw_indexed(
-        //     &self.model_vertices,
-        //     self.model_indices.iter().copied(),
-        //     &mut self.depth_buffer,
-        //     pixels,
-        //     self.width,
-        //     self.height,
-        //     &self.camera,
-        // );
 
         buffer.pixels().copy_from_slice(pixels);
     }
