@@ -9,19 +9,3 @@ pub struct PrimitiveState<T> {
     // unclipped_depth: false,
     // conservative: false,
 }
-
-pub trait IndexStorage {
-    fn as_slice(&self) -> &[usize];
-}
-
-impl<const N: usize> IndexStorage for [usize; N] {
-    fn as_slice(&self) -> &[usize] {
-        self.as_slice()
-    }
-}
-
-impl IndexStorage for Vec<usize> {
-    fn as_slice(&self) -> &[usize] {
-        self.as_slice()
-    }
-}

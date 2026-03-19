@@ -37,7 +37,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     #[inline]
     pub fn draw<Var, C, U>(
         &mut self,
-        vertives: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[VertexInput<V::Vertex, V::Varying>],
         depth_buffer: &mut [f32],
         framebuffer: &mut [C],
         width: usize,
@@ -55,7 +55,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     {
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
-            vertives
+            vertices
                 .par_iter()
                 .enumerate()
                 .map(|(i, v)| self.vertex_shader.vs_main(i, v, uniform)),
@@ -98,7 +98,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     #[inline]
     pub fn draw_indexed<Var, C, U>(
         &mut self,
-        vertives: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[VertexInput<V::Vertex, V::Varying>],
         indexed: impl Iterator<Item = usize>,
         depth_buffer: &mut [f32],
         framebuffer: &mut [C],
@@ -122,7 +122,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         self.vertex_cache.par_extend(
             self.index_cache
                 .par_iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertives[idx], uniform)),
+                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
         );
 
         let num_threads = rayon::current_num_threads().max(1);
