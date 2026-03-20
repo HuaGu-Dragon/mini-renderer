@@ -47,7 +47,7 @@ impl ApplicationHandler for App {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::Init = cause {
             // Create window on startup.
-            let window_attrs = WindowAttributes::default().with_title("sandbox");
+            let window_attrs = WindowAttributes::default().with_title("texture2D");
             let window = event_loop
                 .create_window(window_attrs)
                 .expect("failed creating window");
@@ -151,7 +151,7 @@ impl Renderer {
 
         let depth_buffer = vec![1.0; width * height];
 
-        let diffuse_bytes = include_bytes!("../assets/HuaGuDragon.jpg");
+        let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgb32f();
 

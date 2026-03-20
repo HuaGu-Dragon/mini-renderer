@@ -50,7 +50,7 @@ enum AppState {
 impl ApplicationHandler for App {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if let StartCause::Init = cause {
-            let window_attrs = WindowAttributes::default().with_title("sandbox");
+            let window_attrs = WindowAttributes::default().with_title("model");
             let window = event_loop
                 .create_window(window_attrs)
                 .expect("failed creating window");
