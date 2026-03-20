@@ -6,9 +6,9 @@ pub struct VertexInput<Var, Varying> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct VertexOutput<Var> {
+pub struct VertexOutput<Varying> {
     pub position: Vec4,
-    pub varying: Var,
+    pub varying: Varying,
 }
 
 pub trait VertexShader {
