@@ -237,14 +237,11 @@ impl Renderer {
 
         let mut depth_buffer = vec![1.0; self.width * self.height];
 
-        pipeline.draw(
-            &vertexs,
-            &mut depth_buffer,
-            pixels,
-            self.width,
-            self.height,
-            &(),
-        );
+        mini_renderer::renderer::Renderer::new(self.width, self.height)
+            .begin_render_pass()
+            .set_pipeline(&mut pipeline)
+            .with_depth(&mut depth_buffer)
+            .draw(&vertexs, pixels, &());
 
         buffer.pixels().swap_with_slice(pixels);
 

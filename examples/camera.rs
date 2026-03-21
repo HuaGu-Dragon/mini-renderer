@@ -282,14 +282,11 @@ impl Renderer {
             std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
 
-        self.pipeline.draw(
-            &vertexs,
-            &mut self.depth_buffer,
-            pixels,
-            self.width,
-            self.height,
-            &self.camera,
-        );
+        mini_renderer::renderer::Renderer::new(self.width, self.height)
+            .begin_render_pass()
+            .set_pipeline(&mut self.pipeline)
+            .with_depth(&mut self.depth_buffer)
+            .draw(&vertexs, pixels, &self.camera);
 
         buffer.pixels().copy_from_slice(pixels);
     }
