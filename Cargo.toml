@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dev-dependencies]
+egui = "0.33.3"
+egui-winit = "0.33.3"
+egui_demo_lib = "0.33.3"
+egui_extras = { version = "0.33.3", features = ["all_loaders"] }
 image = "0.25.9"
 softbuffer = { git = "https://github.com/rust-windowing/softbuffer.git"}
 tobj = "4.0.3"
