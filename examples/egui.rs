@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use egui::TextureId;
 use egui_demo_lib::DemoWindows;
@@ -49,14 +49,22 @@ enum AppState {
 
 impl ApplicationHandler for App {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        if let StartCause::Init = cause {
-            let window_attrs = WindowAttributes::default().with_title("egui integration");
-            let window = event_loop
-                .create_window(window_attrs)
-                .expect("failed creating window");
-            self.state = AppState::Suspended {
-                window: Rc::new(window),
-            };
+        match cause {
+            StartCause::Init => {
+                let window_attrs = WindowAttributes::default().with_title("egui integration");
+                let window = event_loop
+                    .create_window(window_attrs)
+                    .expect("failed creating window");
+                self.state = AppState::Suspended {
+                    window: Rc::new(window),
+                };
+            }
+            StartCause::ResumeTimeReached { .. } => {
+                if let AppState::Running { surface, .. } = &self.state {
+                    surface.window().request_redraw();
+                }
+            }
+            _ => {}
         }
     }
 
@@ -75,6 +83,7 @@ impl ApplicationHandler for App {
         }
 
         let egui_ctx = egui::Context::default();
+        egui_extras::install_image_loaders(&egui_ctx);
         let egui_state = egui_winit::State::new(
             egui_ctx.clone(),
             egui::ViewportId::ROOT,
@@ -116,6 +125,11 @@ impl ApplicationHandler for App {
             return;
         }
 
+        let response = renderer.handle_window_event(surface.window(), &event);
+        if response.repaint {
+            surface.window().request_redraw();
+        }
+
         match event {
             WindowEvent::Resized(size) => {
                 if let (Some(width), Some(height)) =
@@ -127,29 +141,34 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let window = surface.window().clone();
                 let mut buffer = surface.next_buffer().unwrap();
-                renderer.render(&mut buffer, &window);
+                let repaint_after = renderer.render(&mut buffer, &window);
                 buffer.present().unwrap();
-                window.request_redraw();
+
+                if repaint_after.is_zero() {
+                    window.request_redraw();
+                    event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+                } else if let Some(scheduled) = std::time::Instant::now().checked_add(repaint_after)
+                {
+                    event_loop
+                        .set_control_flow(winit::event_loop::ControlFlow::WaitUntil(scheduled));
+                }
             }
             WindowEvent::CloseRequested => {
                 event_loop.exit();
             }
-            _ => {
-                // Pass other events to egui
-                renderer.handle_window_event(surface.window(), &event);
-            }
+            _ => {}
         }
     }
 }
 
 struct Renderer {
     render: mini_renderer::renderer::Renderer,
-    buffer: Vec<MaybeUninit<Pixel>>,
     pipeline: Pipeline<TrangleList, TriangleRasterizer, Vertex, Fragment>,
     egui_ctx: egui::Context,
     egui_state: egui_winit::State,
     demo: DemoWindows,
 
+    textures: HashMap<TextureId, Arc<EguiTexture>>,
     uniform: EguiUniform,
     cached_vertices: Vec<VertexInput<egui::epaint::Vertex, EguiVarying>>,
     cached_indices: Vec<usize>,
@@ -163,11 +182,6 @@ pub struct EguiTexture {
 
 impl Renderer {
     fn new(width: usize, height: usize, context: egui::Context, egui_state: State) -> Self {
-        let mut buffer = Vec::with_capacity(width * height);
-        unsafe {
-            buffer.set_len(width * height);
-        }
-
         let pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
@@ -182,16 +196,15 @@ impl Renderer {
 
         Self {
             render: renderer,
-            buffer,
             pipeline,
             egui_ctx: context,
             egui_state,
             demo: DemoWindows::default(),
+            textures: HashMap::new(),
             uniform: EguiUniform {
                 screen_size: (width as f32, height as f32),
                 pixels_per_point: 1.0,
-                textures: HashMap::new(),
-                current_texture_id: TextureId::default(),
+                texture: None,
                 current_clip_rect: egui::Rect::EVERYTHING,
             },
             cached_vertices: Vec::new(),
@@ -199,8 +212,12 @@ impl Renderer {
         }
     }
 
-    fn handle_window_event(&mut self, window: &Window, event: &WindowEvent) {
-        let _ = self.egui_state.on_window_event(window, event);
+    fn handle_window_event(
+        &mut self,
+        window: &Window,
+        event: &WindowEvent,
+    ) -> egui_winit::EventResponse {
+        self.egui_state.on_window_event(window, event)
     }
 
     fn update_textures(&mut self, textures_delta: egui::TexturesDelta) {
@@ -210,7 +227,9 @@ impl Renderer {
             };
 
             if let Some(pos) = image_delta.pos {
-                if let Some(texture) = self.uniform.textures.get_mut(texture_id) {
+                if let Some(texture) = self.textures.get_mut(texture_id)
+                    && let Some(texture) = Arc::get_mut(texture)
+                {
                     let x_offset = pos[0];
                     let y_offset = pos[1];
 
@@ -230,12 +249,12 @@ impl Renderer {
                     height,
                     pixels: pixels.clone(),
                 };
-                self.uniform.textures.insert(*texture_id, texture);
+                self.textures.insert(*texture_id, Arc::new(texture));
             }
         }
 
         for texture_id in &textures_delta.free {
-            self.uniform.textures.remove(texture_id);
+            self.textures.remove(texture_id);
         }
     }
 
@@ -246,30 +265,31 @@ impl Renderer {
 
         self.render.width = width;
         self.render.height = height;
-        let mut buffer = Vec::with_capacity(width * height);
-        unsafe {
-            buffer.set_len(width * height);
-        }
-        self.buffer = buffer;
         self.uniform.screen_size = (width as f32, height as f32);
     }
 
-    fn render(&mut self, buffer: &mut Buffer, window: &Window) {
+    fn render(&mut self, buffer: &mut Buffer, window: &Window) -> std::time::Duration {
         self.resize(
             buffer.width().get() as usize,
             buffer.height().get() as usize,
         );
 
-        let pixels = unsafe {
-            std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
-        };
-
+        let pixels = buffer.pixels();
         pixels.fill(Pixel::new_rgb(20, 20, 20));
 
         let raw_input = self.egui_state.take_egui_input(window);
         self.egui_ctx.begin_pass(raw_input);
         self.demo.ui(&self.egui_ctx);
         let output = self.egui_ctx.end_pass();
+
+        self.egui_state
+            .handle_platform_output(window, output.platform_output);
+
+        let repaint_after = output
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .expect("Root viewport missing")
+            .repaint_delay;
 
         self.uniform.pixels_per_point = output.pixels_per_point;
 
@@ -300,7 +320,7 @@ impl Renderer {
                 }
 
                 self.uniform.current_clip_rect = clipped_primitive.clip_rect;
-                self.uniform.current_texture_id = mesh.texture_id;
+                self.uniform.texture = self.textures.get(&mesh.texture_id).cloned();
 
                 bound_pipeline.draw_indexed(
                     &self.cached_vertices,
@@ -310,9 +330,10 @@ impl Renderer {
                 );
             }
         }
+        self.uniform.texture = None;
         println!("fps: {}", 1.0 / start.elapsed().as_secs_f32());
 
-        buffer.pixels().copy_from_slice(pixels);
+        repaint_after
     }
 }
 
@@ -322,8 +343,7 @@ struct Fragment;
 pub struct EguiUniform {
     pub screen_size: (f32, f32),
     pub pixels_per_point: f32,
-    pub textures: HashMap<TextureId, EguiTexture>,
-    pub current_texture_id: TextureId,
+    pub texture: Option<Arc<EguiTexture>>,
     pub current_clip_rect: egui::Rect,
 }
 
@@ -385,7 +405,7 @@ impl FragmentShader for Fragment {
         let mut b = color.2;
         let mut a = color.3;
 
-        let texture = uniform.textures.get(&uniform.current_texture_id)?;
+        let texture = uniform.texture.as_ref()?;
 
         let uv = varying.uv;
         let tex_x = ((uv.0 * texture.width as f32).clamp(0.0, (texture.width - 1) as f32)) as usize;
