@@ -3,7 +3,6 @@ use std::{fmt::Debug, marker::PhantomData};
 use rayon::prelude::*;
 
 use crate::{
-    color::ColorFormat,
     graphics::{rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
         shader::{FragmentShader, VertexOutput, VertexShader},
@@ -36,11 +35,11 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     }
 
     #[inline]
-    pub(crate) fn draw_indexed_without_depth<Var, U>(
+    pub(crate) fn draw_indexed_without_depth<Var, C, U>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
-        framebuffer: &mut [F::Output],
+        framebuffer: &mut [C],
         width: usize,
         height: usize,
         uniform: &U,
@@ -51,7 +50,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        F::Output: Send,
+        C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
         self.index_cache.clear();
@@ -88,17 +87,17 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    fb_chunk[local_idx] = output;
+                    fb_chunk[local_idx] = output.into();
                 });
             });
     }
 
     #[inline]
-    pub(crate) fn draw_indexed_without_depth_blend<Var, C, U>(
+    pub(crate) fn draw_indexed_without_depth_blend<Var, C, O, U>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
-        framebuffer: &mut [C::Output],
+        framebuffer: &mut [O],
         width: usize,
         height: usize,
         uniform: &U,
@@ -109,8 +108,8 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: ColorFormat,
-        C::Output: Send,
+        C: From<O> + Into<O> + Send,
+        O: Send + Copy,
         V::Vertex: Send + Sync,
     {
         self.index_cache.clear();
@@ -147,8 +146,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    fb_chunk[local_idx] =
-                        F::blend(output, C::from_output(fb_chunk[local_idx])).to_output();
+                    fb_chunk[local_idx] = F::blend(output, C::from(fb_chunk[local_idx])).into();
                 });
             });
     }
@@ -168,10 +166,10 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
-        F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
+        F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: Send,
+        C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
         self.index_cache.clear();
@@ -210,7 +208,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
                         let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[local_idx] = output;
+                        fb_chunk[local_idx] = output.into();
                         db_chunk[local_idx] = f.depth;
                     }
                 });
@@ -219,12 +217,12 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
 
     #[allow(clippy::too_many_arguments)]
     #[inline]
-    pub fn draw_indexed_with_depth_blend<Var, C, U>(
+    pub fn draw_indexed_with_depth_blend<Var, C, O, U>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         depth_buffer: &mut [f32],
-        framebuffer: &mut [C::Output],
+        framebuffer: &mut [O],
         width: usize,
         height: usize,
         uniform: &U,
@@ -235,8 +233,8 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: ColorFormat,
-        C::Output: Send,
+        C: From<O> + Into<O> + Send,
+        O: Send + Copy,
         V::Vertex: Send + Sync,
     {
         self.index_cache.clear();
@@ -275,8 +273,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
                         let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[local_idx] =
-                            F::blend(output, C::from_output(fb_chunk[local_idx])).to_output();
+                        fb_chunk[local_idx] = F::blend(output, C::from(fb_chunk[local_idx])).into();
                         db_chunk[local_idx] = f.depth;
                     }
                 });

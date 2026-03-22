@@ -6,7 +6,6 @@ use std::sync::Arc;
 use egui::TextureId;
 use egui_demo_lib::DemoWindows;
 use egui_winit::State;
-use mini_renderer::color::ColorFormat;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
@@ -437,17 +436,17 @@ pub struct EguiColor {
     pub a: f32,
 }
 
-impl ColorFormat for EguiColor {
-    type Output = Pixel;
-
-    fn to_output(self) -> Self::Output {
-        let r = (self.r * 255.0) as u8;
-        let g = (self.g * 255.0) as u8;
-        let b = (self.b * 255.0) as u8;
+impl From<EguiColor> for Pixel {
+    fn from(val: EguiColor) -> Self {
+        let r = (val.r * 255.0) as u8;
+        let g = (val.g * 255.0) as u8;
+        let b = (val.b * 255.0) as u8;
         Pixel::new_rgb(r, g, b)
     }
+}
 
-    fn from_output(output: Self::Output) -> Self {
+impl From<Pixel> for EguiColor {
+    fn from(output: Pixel) -> Self {
         let r = output.r as f32 / 255.0;
         let g = output.g as f32 / 255.0;
         let b = output.b as f32 / 255.0;

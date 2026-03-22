@@ -1,7 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    color::ColorFormat,
     graphics::{primitive::PrimitiveState, rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
         Pipeline,
@@ -124,7 +123,7 @@ impl<'a, T, R, V: VertexShader, F, B> BoundPipeline<'a, T, R, V, F, NoDepth, B> 
 
 // Methods to transition from NoBlend state
 impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlend> {
-    /// Enable blending (requires ColorFormat trait bound).
+    /// Enable blending (requires bidirectional From/Into conversion).
     pub fn with_blend(self) -> BoundPipeline<'a, T, R, V, F, NoDepth, WithBlend> {
         BoundPipeline {
             render: self.render,
@@ -136,7 +135,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
 }
 
 impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, NoBlend> {
-    /// Enable blending (requires ColorFormat trait bound).
+    /// Enable blending (requires bidirectional From/Into conversion).
     pub fn with_blend(self) -> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, WithBlend> {
         BoundPipeline {
             render: self.render,
@@ -153,19 +152,15 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
 impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlend> {
     /// Draw all vertices without depth testing or blending.
     #[inline]
-    pub fn draw<Var, U>(
-        &mut self,
-        vertices: &[V::Vertex],
-        framebuffer: &mut [F::Output],
-        uniform: &U,
-    ) where
+    pub fn draw<Var, U, C>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [C], uniform: &U)
+    where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        F::Output: Send,
+        C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
@@ -173,11 +168,11 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
 
     /// Draw indexed vertices without depth testing or blending.
     #[inline]
-    pub fn draw_indexed<Var, U>(
+    pub fn draw_indexed<Var, U, C>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
-        framebuffer: &mut [F::Output],
+        framebuffer: &mut [C],
         uniform: &U,
     ) where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
@@ -186,7 +181,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        F::Output: Send,
+        C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
         self.pipeline.draw_indexed_without_depth(
@@ -206,20 +201,16 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
 impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBlend> {
     /// Draw all vertices with blending but without depth testing.
     #[inline]
-    pub fn draw<Var, U, C>(
-        &mut self,
-        vertices: &[V::Vertex],
-        framebuffer: &mut [C::Output],
-        uniform: &U,
-    ) where
+    pub fn draw<Var, U, C, O>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [O], uniform: &U)
+    where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: ColorFormat,
-        C::Output: Send,
+        C: From<O> + Into<O> + Send,
+        O: Send + Copy,
         V::Vertex: Send + Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
@@ -227,11 +218,11 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBl
 
     /// Draw indexed vertices with blending but without depth testing.
     #[inline]
-    pub fn draw_indexed<Var, U, C>(
+    pub fn draw_indexed<Var, U, C, O>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
-        framebuffer: &mut [C::Output],
+        framebuffer: &mut [O],
         uniform: &U,
     ) where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
@@ -240,8 +231,8 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBl
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: ColorFormat,
-        C::Output: Send,
+        C: From<O> + Into<O> + Send,
+        O: Send + Copy,
         V::Vertex: Send + Sync,
     {
         self.pipeline.draw_indexed_without_depth_blend(
@@ -261,19 +252,15 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBl
 impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, NoBlend> {
     /// Draw all vertices with depth testing but without blending.
     #[inline]
-    pub fn draw<Var, U>(
-        &mut self,
-        vertices: &[V::Vertex],
-        framebuffer: &mut [F::Output],
-        uniform: &U,
-    ) where
+    pub fn draw<Var, U, C>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [C], uniform: &U)
+    where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        F::Output: Send,
+        C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
@@ -281,11 +268,11 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
 
     /// Draw indexed vertices with depth testing but without blending.
     #[inline]
-    pub fn draw_indexed<Var, U>(
+    pub fn draw_indexed<Var, U, C>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
-        framebuffer: &mut [F::Output],
+        framebuffer: &mut [C],
         uniform: &U,
     ) where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
@@ -294,7 +281,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        F::Output: Send,
+        C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
         self.pipeline.draw_indexed(
@@ -315,20 +302,16 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
 impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, WithBlend> {
     /// Draw all vertices with both depth testing and blending.
     #[inline]
-    pub fn draw<Var, U, C>(
-        &mut self,
-        vertices: &[V::Vertex],
-        framebuffer: &mut [C::Output],
-        uniform: &U,
-    ) where
+    pub fn draw<Var, U, C, O>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [O], uniform: &U)
+    where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: ColorFormat,
-        C::Output: Send,
+        C: From<O> + Into<O> + Send,
+        O: Send + Copy,
         V::Vertex: Send + Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
@@ -336,11 +319,11 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
 
     /// Draw indexed vertices with both depth testing and blending.
     #[inline]
-    pub fn draw_indexed<Var, U, C>(
+    pub fn draw_indexed<Var, U, C, O>(
         &mut self,
         vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
-        framebuffer: &mut [C::Output],
+        framebuffer: &mut [O],
         uniform: &U,
     ) where
         T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
@@ -349,8 +332,8 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Debug + Send + Sync,
         U: Sync,
-        C: ColorFormat,
-        C::Output: Send,
+        C: From<O> + Into<O> + Send,
+        O: Send + Copy,
         V::Vertex: Send + Sync,
     {
         self.pipeline.draw_indexed_with_depth_blend(
