@@ -5,7 +5,7 @@ use crate::{
     graphics::{primitive::PrimitiveState, rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
         Pipeline,
-        shader::{FragmentShader, VertexInput, VertexShader},
+        shader::{FragmentShader, VertexShader},
         varying::Varying,
     },
 };
@@ -155,7 +155,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
     #[inline]
     pub fn draw<Var, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         framebuffer: &mut [F::Output],
         uniform: &U,
     ) where
@@ -175,7 +175,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
     #[inline]
     pub fn draw_indexed<Var, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [F::Output],
         uniform: &U,
@@ -208,7 +208,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBl
     #[inline]
     pub fn draw<Var, U, C>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         framebuffer: &mut [C::Output],
         uniform: &U,
     ) where
@@ -229,7 +229,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBl
     #[inline]
     pub fn draw_indexed<Var, U, C>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [C::Output],
         uniform: &U,
@@ -263,7 +263,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
     #[inline]
     pub fn draw<Var, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         framebuffer: &mut [F::Output],
         uniform: &U,
     ) where
@@ -283,7 +283,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
     #[inline]
     pub fn draw_indexed<Var, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [F::Output],
         uniform: &U,
@@ -317,7 +317,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
     #[inline]
     pub fn draw<Var, U, C>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         framebuffer: &mut [C::Output],
         uniform: &U,
     ) where
@@ -338,7 +338,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
     #[inline]
     pub fn draw_indexed<Var, U, C>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [C::Output],
         uniform: &U,

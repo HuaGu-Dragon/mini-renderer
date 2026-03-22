@@ -6,7 +6,7 @@ use std::rc::Rc;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::PrimitiveTopology;
 use mini_renderer::math::Vec4;
-use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
+use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -205,30 +205,12 @@ impl Renderer {
         );
 
         let vertexs = [
-            VertexInput {
-                vertex: (0.0, 0.5, 0.0),
-                varying: Some((1.0, 0.0, 0.0)),
-            },
-            VertexInput {
-                vertex: (0.5, -0.5, 0.0),
-                varying: Some((0.0, 1.0, 0.0)),
-            },
-            VertexInput {
-                vertex: (-0.5, -0.5, 0.0),
-                varying: Some((0.0, 0.0, 1.0)),
-            },
-            VertexInput {
-                vertex: (0.5, 0.75, -1.0),
-                varying: Some((1.0, 1.0, 1.0)),
-            },
-            VertexInput {
-                vertex: (0.3, -0.4, -0.25),
-                varying: Some((1.0, 1.0, 1.0)),
-            },
-            VertexInput {
-                vertex: (-0.75, -0.75, 1.0),
-                varying: Some((1.0, 1.0, 1.0)),
-            },
+            ((0.0, 0.5, 0.0), (1.0, 0.0, 0.0)),
+            ((0.5, -0.5, 0.0), (0.0, 1.0, 0.0)),
+            ((-0.5, -0.5, 0.0), (0.0, 0.0, 1.0)),
+            ((0.5, 0.75, -1.0), (1.0, 1.0, 1.0)),
+            ((0.3, -0.4, -0.25), (1.0, 1.0, 1.0)),
+            ((-0.75, -0.75, 1.0), (1.0, 1.0, 1.0)),
         ];
 
         let pixels = unsafe {
@@ -253,20 +235,20 @@ struct Vertex;
 struct Fragment;
 
 impl VertexShader for Vertex {
-    type Vertex = (f32, f32, f32);
+    type Vertex = ((f32, f32, f32), (f32, f32, f32));
     type Varying = (f32, f32, f32);
     type Uniform = ();
 
     fn vs_main(
         &self,
         _index: usize,
-        vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
+        vertex: &Self::Vertex,
         _uniform: &Self::Uniform,
     ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
-        let VertexInput { vertex, varying } = vertex;
+        let (pos, color) = vertex;
         VertexOutput {
-            position: Vec4::new(vertex.0, vertex.1, vertex.2, 1.0),
-            varying: varying.unwrap(),
+            position: Vec4::new(pos.0, pos.1, pos.2, 1.0),
+            varying: *color,
         }
     }
 }

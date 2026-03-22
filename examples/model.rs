@@ -10,7 +10,7 @@ use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::{Vec3, Vec4};
 use mini_renderer::pipeline::Pipeline;
-use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
+use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
 use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
@@ -146,7 +146,7 @@ struct Renderer {
     depth_buffer: Vec<f32>,
     pipeline: Pipeline<TrangleList, TriangleRasterizer, Vertex, Fragment>,
     camera: Camera,
-    model_vertices: Vec<VertexInput<(f32, f32, f32), ColorOutput>>,
+    model_vertices: Vec<ModelVertex>,
     model_indices: Vec<usize>,
 }
 
@@ -252,25 +252,29 @@ struct Fragment {
 }
 
 impl VertexShader for Vertex {
-    type Vertex = (f32, f32, f32);
+    type Vertex = ModelVertex;
     type Varying = ColorOutput;
     type Uniform = Camera;
 
     fn vs_main(
         &self,
         _index: usize,
-        vertex: &mini_renderer::pipeline::shader::VertexInput<Self::Vertex, Self::Varying>,
+        vertex: &Self::Vertex,
         uniform: &Self::Uniform,
     ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
-        let VertexInput { vertex, varying } = vertex;
         let camera = uniform;
-        let position =
-            camera.build_view_projection_matrix() * Vec4::new(vertex.0, vertex.1, vertex.2, 1.0);
+        let position = camera.build_view_projection_matrix()
+            * Vec4::new(vertex.position.0, vertex.position.1, vertex.position.2, 1.0);
         VertexOutput {
             position,
-            varying: varying.unwrap(),
+            varying: vertex.varying,
         }
     }
+}
+
+pub struct ModelVertex {
+    pub position: (f32, f32, f32),
+    pub varying: ColorOutput,
 }
 
 impl FragmentShader for Fragment {
@@ -312,11 +316,11 @@ impl FragmentShader for Fragment {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ColorOutput {
-    tex_coord: (f32, f32),
-    normal: (f32, f32, f32),
-    color: (f32, f32, f32),
-    texture_id: usize,
+pub struct ColorOutput {
+    pub tex_coord: (f32, f32),
+    pub normal: (f32, f32, f32),
+    pub color: (f32, f32, f32),
+    pub texture_id: usize,
 }
 
 impl Varying for ColorOutput {
@@ -502,7 +506,7 @@ impl Texture {
     }
 }
 
-type Vertexs = Vec<VertexInput<(f32, f32, f32), ColorOutput>>;
+type Vertexs = Vec<ModelVertex>;
 
 fn load_model(path: &str) -> (Vertexs, Vec<usize>, Vec<Texture>) {
     let obj = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS);
@@ -649,14 +653,14 @@ fn load_model(path: &str) -> (Vertexs, Vec<usize>, Vec<Texture>) {
                 (1.0, 1.0, 1.0)
             };
 
-            vertices.push(VertexInput {
-                vertex: position,
-                varying: Some(ColorOutput {
+            vertices.push(ModelVertex {
+                position,
+                varying: ColorOutput {
                     tex_coord,
                     normal,
                     color,
                     texture_id,
-                }),
+                },
             });
         }
 

@@ -6,7 +6,7 @@ use crate::{
     color::ColorFormat,
     graphics::{rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
-        shader::{FragmentShader, VertexInput, VertexOutput, VertexShader},
+        shader::{FragmentShader, VertexOutput, VertexShader},
         varying::Varying,
     },
 };
@@ -38,7 +38,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     #[inline]
     pub(crate) fn draw_indexed_without_depth<Var, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [F::Output],
         width: usize,
@@ -96,7 +96,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     #[inline]
     pub(crate) fn draw_indexed_without_depth_blend<Var, C, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [C::Output],
         width: usize,
@@ -157,7 +157,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     #[inline]
     pub(crate) fn draw_indexed<Var, C, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         depth_buffer: &mut [f32],
         framebuffer: &mut [C],
@@ -221,7 +221,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
     #[inline]
     pub fn draw_indexed_with_depth_blend<Var, C, U>(
         &mut self,
-        vertices: &[VertexInput<V::Vertex, V::Varying>],
+        vertices: &[V::Vertex],
         indexed: impl Iterator<Item = usize>,
         depth_buffer: &mut [f32],
         framebuffer: &mut [C::Output],

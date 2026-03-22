@@ -12,7 +12,7 @@ use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
-use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
+use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
 use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
@@ -170,7 +170,7 @@ struct Renderer {
 
     textures: HashMap<TextureId, Arc<EguiTexture>>,
     uniform: EguiUniform,
-    cached_vertices: Vec<VertexInput<egui::epaint::Vertex, EguiVarying>>,
+    cached_vertices: Vec<egui::epaint::Vertex>,
     cached_indices: Vec<usize>,
 }
 
@@ -309,10 +309,7 @@ impl Renderer {
                 self.cached_indices.clear();
 
                 for &vertex in &mesh.vertices {
-                    self.cached_vertices.push(VertexInput {
-                        vertex,
-                        varying: None,
-                    });
+                    self.cached_vertices.push(vertex);
                 }
 
                 for &index in &mesh.indices {
@@ -355,10 +352,10 @@ impl VertexShader for Vertex {
     fn vs_main(
         &self,
         _index: usize,
-        vertex: &VertexInput<Self::Vertex, Self::Varying>,
+        vertex: &Self::Vertex,
         uniform: &Self::Uniform,
     ) -> VertexOutput<Self::Varying> {
-        let v = &vertex.vertex;
+        let v = vertex;
 
         let logical_width = uniform.screen_size.0 / uniform.pixels_per_point;
         let logical_height = uniform.screen_size.1 / uniform.pixels_per_point;

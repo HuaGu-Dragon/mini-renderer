@@ -8,7 +8,7 @@ use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
-use mini_renderer::pipeline::shader::{FragmentShader, VertexInput, VertexOutput, VertexShader};
+use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
 use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
@@ -206,47 +206,47 @@ impl Renderer {
         self.depth_buffer.fill(1.0);
 
         let vertexs = [
-            VertexInput {
-                vertex: (-0.5, 0.5, 0.0),
-                varying: Some(ColorOutput {
+            TextureVertex {
+                position: (-0.5, 0.5, 0.0),
+                varying: ColorOutput {
                     tex_coord: (0.0, 0.0),
                     color: (1.0, 0.0, 0.0),
-                }),
+                },
             },
-            VertexInput {
-                vertex: (0.5, 0.5, 0.0),
-                varying: Some(ColorOutput {
+            TextureVertex {
+                position: (0.5, 0.5, 0.0),
+                varying: ColorOutput {
                     tex_coord: (1.0, 0.0),
                     color: (0.0, 1.0, 0.0),
-                }),
+                },
             },
-            VertexInput {
-                vertex: (-0.5, -0.5, 0.0),
-                varying: Some(ColorOutput {
+            TextureVertex {
+                position: (-0.5, -0.5, 0.0),
+                varying: ColorOutput {
                     tex_coord: (0.0, 1.0),
                     color: (0.0, 0.0, 1.0),
-                }),
+                },
             },
-            VertexInput {
-                vertex: (0.5, 0.5, 0.0),
-                varying: Some(ColorOutput {
+            TextureVertex {
+                position: (0.5, 0.5, 0.0),
+                varying: ColorOutput {
                     tex_coord: (1.0, 0.0),
                     color: (0.0, 1.0, 0.0),
-                }),
+                },
             },
-            VertexInput {
-                vertex: (0.5, -0.5, 0.0),
-                varying: Some(ColorOutput {
+            TextureVertex {
+                position: (0.5, -0.5, 0.0),
+                varying: ColorOutput {
                     tex_coord: (1.0, 1.0),
                     color: (1.0, 1.0, 0.0),
-                }),
+                },
             },
-            VertexInput {
-                vertex: (-0.5, -0.5, 0.0),
-                varying: Some(ColorOutput {
+            TextureVertex {
+                position: (-0.5, -0.5, 0.0),
+                varying: ColorOutput {
                     tex_coord: (0.0, 1.0),
                     color: (0.0, 0.0, 1.0),
-                }),
+                },
             },
         ];
 
@@ -273,22 +273,26 @@ struct Fragment {
 }
 
 impl VertexShader for Vertex {
-    type Vertex = (f32, f32, f32);
+    type Vertex = TextureVertex;
     type Varying = ColorOutput;
     type Uniform = ();
 
     fn vs_main(
         &self,
         _index: usize,
-        vertex: &VertexInput<Self::Vertex, Self::Varying>,
+        vertex: &Self::Vertex,
         _uniform: &Self::Uniform,
     ) -> VertexOutput<Self::Varying> {
-        let VertexInput { vertex, varying } = vertex;
         VertexOutput {
-            position: Vec4::new(vertex.0, vertex.1, vertex.2, 1.0),
-            varying: varying.unwrap(),
+            position: Vec4::new(vertex.position.0, vertex.position.1, vertex.position.2, 1.0),
+            varying: vertex.varying,
         }
     }
+}
+
+struct TextureVertex {
+    position: (f32, f32, f32),
+    varying: ColorOutput,
 }
 
 impl FragmentShader for Fragment {

@@ -1,10 +1,5 @@
 use crate::math::Vec4;
 
-pub struct VertexInput<Var, Varying> {
-    pub vertex: Var,
-    pub varying: Option<Varying>,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct VertexOutput<Varying> {
     pub position: Vec4,
@@ -19,7 +14,7 @@ pub trait VertexShader {
     fn vs_main(
         &self,
         index: usize,
-        vertex: &VertexInput<Self::Vertex, Self::Varying>,
+        vertex: &Self::Vertex,
         uniform: &Self::Uniform,
     ) -> VertexOutput<Self::Varying>;
 }
