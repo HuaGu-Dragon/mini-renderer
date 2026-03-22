@@ -223,7 +223,7 @@ impl Renderer {
             std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
 
-        pixels.fill(Pixel::new_rgb(0, 0, 0));
+        pixels.fill(Pixel::new_rgb(33, 33, 33));
         self.depth_buffer.fill(1.0);
 
         let pixels = unsafe {
