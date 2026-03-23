@@ -8,7 +8,6 @@ pub struct VertexOutput<Varying> {
 
 pub trait VertexShader {
     type Vertex;
-    type Varying;
     type Uniform;
 
     fn vs_main(
