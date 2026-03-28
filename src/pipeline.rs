@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::marker::PhantomData;
 
 use rayon::prelude::*;
 
@@ -48,7 +48,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
-        Var: Varying + Debug + Send + Sync,
+        Var: Varying + Send + Sync,
         U: Sync,
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
@@ -106,7 +106,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
-        Var: Varying + Debug + Send + Sync,
+        Var: Varying + Send + Sync,
         U: Sync,
         C: From<O> + Into<O> + Send,
         O: Send + Copy,
@@ -167,7 +167,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
-        Var: Varying + Debug + Send + Sync,
+        Var: Varying + Send + Sync,
         U: Sync,
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
@@ -231,7 +231,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
-        Var: Varying + Debug + Send + Sync,
+        Var: Varying + Send + Sync,
         U: Sync,
         C: From<O> + Into<O> + Send,
         O: Send + Copy,
