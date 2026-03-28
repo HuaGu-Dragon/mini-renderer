@@ -285,3 +285,142 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
             .flatten()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EPSILON: f32 = 1e-5;
+
+    fn approx_eq(a: f32, b: f32) -> bool {
+        (a - b).abs() < EPSILON
+    }
+
+    #[test]
+    fn test_edge_function_positive() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(1.0, 0.0);
+        let c = Vec2::new(0.0, 1.0);
+        let result = TriangleRasterizer::edge_function(a, b, c);
+        assert!(result > 0.0);
+    }
+
+    #[test]
+    fn test_edge_function_negative() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(0.0, 1.0);
+        let c = Vec2::new(1.0, 0.0);
+        let result = TriangleRasterizer::edge_function(a, b, c);
+        assert!(result < 0.0);
+    }
+
+    #[test]
+    fn test_edge_function_collinear() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(1.0, 1.0);
+        let c = Vec2::new(2.0, 2.0);
+        let result = TriangleRasterizer::edge_function(a, b, c);
+        assert!(approx_eq(result, 0.0));
+    }
+
+    #[test]
+    fn test_edge_function_unit_triangle() {
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(1.0, 0.0);
+        let c = Vec2::new(0.0, 1.0);
+        let result = TriangleRasterizer::edge_function(a, b, c);
+        assert!(approx_eq(result, 1.0));
+    }
+
+    #[test]
+    fn test_clip_to_screen_ndc_center() {
+        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
+        let clip_pos = Vec4::new(0.0, 0.0, 0.0, 1.0); // NDC center
+        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+
+        // NDC center (0,0) should map to screen center (50, 50)
+        assert!(approx_eq(screen_pos.x, 50.0));
+        assert!(approx_eq(screen_pos.y, 50.0));
+        assert!(approx_eq(screen_pos.z, 0.5));
+    }
+
+    #[test]
+    fn test_clip_to_screen_ndc_left_bottom() {
+        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
+        let clip_pos = Vec4::new(-1.0, -1.0, -1.0, 1.0); // NDC left-bottom
+        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+
+        // NDC (-1,-1) should map to screen (0, 100)
+        assert!(approx_eq(screen_pos.x, 0.0));
+        assert!(approx_eq(screen_pos.y, 100.0));
+    }
+
+    #[test]
+    fn test_clip_to_screen_ndc_right_top() {
+        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
+        let clip_pos = Vec4::new(1.0, 1.0, 1.0, 1.0); // NDC right-top
+        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+
+        // NDC (1,1) should map to screen (100, 0)
+        assert!(approx_eq(screen_pos.x, 100.0));
+        assert!(approx_eq(screen_pos.y, 0.0));
+    }
+
+    #[test]
+    fn test_clip_to_screen_perspective() {
+        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
+        let clip_pos = Vec4::new(1.0, 1.0, 1.0, 2.0); // w != 1.0
+        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+
+        // Perspective division: 1.0 / 2.0 = 0.5
+        // screen_x = (0.5 + 1.0) * 0.5 * 100 = 75
+        // screen_y = (1.0 - 0.5) * 0.5 * 100 = 25
+        assert!(approx_eq(screen_pos.x, 75.0));
+        assert!(approx_eq(screen_pos.y, 25.0));
+    }
+
+    #[test]
+    fn test_should_cull_triangle_completely_behind() {
+        // All vertices behind near plane
+        let v0 = Vec4::new(0.0, 0.0, -2.0, 1.0);
+        let v1 = Vec4::new(1.0, 0.0, -2.0, 1.0);
+        let v2 = Vec4::new(0.0, 1.0, -2.0, 1.0);
+        assert!(TriangleRasterizer::should_cull_triangle(v0, v1, v2));
+    }
+
+    #[test]
+    fn test_should_cull_triangle_completely_in_front() {
+        // All vertices in front of far plane
+        let v0 = Vec4::new(0.0, 0.0, 2.0, 1.0);
+        let v1 = Vec4::new(1.0, 0.0, 2.0, 1.0);
+        let v2 = Vec4::new(0.0, 1.0, 2.0, 1.0);
+        assert!(TriangleRasterizer::should_cull_triangle(v0, v1, v2));
+    }
+
+    #[test]
+    fn test_should_cull_triangle_left_of_viewport() {
+        // All vertices left of viewport
+        let v0 = Vec4::new(-2.0, 0.0, 0.0, 1.0);
+        let v1 = Vec4::new(-1.5, 0.5, 0.0, 1.0);
+        let v2 = Vec4::new(-1.5, -0.5, 0.0, 1.0);
+        assert!(TriangleRasterizer::should_cull_triangle(v0, v1, v2));
+    }
+
+    #[test]
+    fn test_should_cull_triangle_right_of_viewport() {
+        // All vertices right of viewport
+        let v0 = Vec4::new(2.0, 0.0, 0.0, 1.0);
+        let v1 = Vec4::new(1.5, 0.5, 0.0, 1.0);
+        let v2 = Vec4::new(1.5, -0.5, 0.0, 1.0);
+        assert!(TriangleRasterizer::should_cull_triangle(v0, v1, v2));
+    }
+
+    #[test]
+    fn test_should_not_cull_visible_triangle() {
+        // Visible triangle in the center
+        let v0 = Vec4::new(-0.5, -0.5, 0.0, 1.0);
+        let v1 = Vec4::new(0.5, -0.5, 0.0, 1.0);
+        let v2 = Vec4::new(0.0, 0.5, 0.0, 1.0);
+        assert!(!TriangleRasterizer::should_cull_triangle(v0, v1, v2));
+    }
+}
