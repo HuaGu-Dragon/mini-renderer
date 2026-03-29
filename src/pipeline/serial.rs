@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use crate::{
     graphics::{rasterizer::Rasterizer, topology::Primitive},

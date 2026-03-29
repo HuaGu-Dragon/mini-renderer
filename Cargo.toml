@@ -14,9 +14,14 @@ tobj = "4.0.3"
 winit = "0.30.12"
 
 [dependencies]
-glam = { version = "0.32.0", optional = true }
-rayon = "1.11.0"
+glam = { version = "0.32.0", optional = true, default-features = false }
+libm = { version = "0.2.16", optional = true }
+rayon = { version = "1.11.0", optional = true }
 
 [features]
-default = ["glam"]
+default = ["std", "glam"]
+std = ["glam?/std"]
+rayon = ["dep:rayon"]
 glam = ["dep:glam"]
+
+libm = ["dep:libm", "glam?/libm"]

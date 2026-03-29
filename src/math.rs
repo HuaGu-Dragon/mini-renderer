@@ -54,3 +54,35 @@ mod inner {
         }
     }
 }
+
+pub trait FloatExt {
+    fn floor_custom(self) -> Self;
+
+    fn ceil_custom(self) -> Self;
+}
+
+impl FloatExt for f32 {
+    #[inline(always)]
+    fn floor_custom(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            self.floor()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            libm::floorf(self)
+        }
+    }
+
+    #[inline(always)]
+    fn ceil_custom(self) -> Self {
+        #[cfg(feature = "std")]
+        {
+            self.ceil()
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            libm::ceilf(self)
+        }
+    }
+}

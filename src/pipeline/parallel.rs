@@ -1,5 +1,5 @@
+use core::marker::PhantomData;
 use rayon::prelude::*;
-use std::marker::PhantomData;
 
 use crate::{
     graphics::{rasterizer::Rasterizer, topology::Primitive},

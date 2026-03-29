@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{
     graphics::{primitive::PrimitiveState, rasterizer::Rasterizer, topology::Primitive},

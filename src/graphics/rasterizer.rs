@@ -1,6 +1,6 @@
 use crate::{
     graphics::{Face, FrontFace},
-    math::{Vec2, Vec4},
+    math::{FloatExt, Vec2, Vec4},
     pipeline::{shader::VertexOutput, varying::Varying},
 };
 
@@ -107,10 +107,10 @@ impl TriangleRasterizer {
         let [v0_varying, v1_varying, v2_varying] = varyings;
         let [tile_x, tile_y, tile_width, tile_height] = tile_bounds;
 
-        let min_x = v0.x.min(v1.x).min(v2.x).floor() as i32;
-        let max_x = v0.x.max(v1.x).max(v2.x).ceil() as i32;
-        let min_y = v0.y.min(v1.y).min(v2.y).floor() as i32;
-        let max_y = v0.y.max(v1.y).max(v2.y).ceil() as i32;
+        let min_x = v0.x.min(v1.x).min(v2.x).floor_custom() as i32;
+        let max_x = v0.x.max(v1.x).max(v2.x).ceil_custom() as i32;
+        let min_y = v0.y.min(v1.y).min(v2.y).floor_custom() as i32;
+        let max_y = v0.y.max(v1.y).max(v2.y).ceil_custom() as i32;
 
         let min_x = min_x.max(tile_x as i32);
         let max_x = max_x.min((tile_x + tile_width) as i32);

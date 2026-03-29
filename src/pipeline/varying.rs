@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub trait Varying: Sized + Copy {
     /// Interpolate between three vertices using barycentric coordinates
