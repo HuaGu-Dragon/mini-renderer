@@ -21,6 +21,7 @@ rayon = { version = "1.11.0", optional = true }
 # for minimal-versions CI only:
 [target.'cfg(any())'.dependencies]
 num-bigint = "0.4.4"
+rustix = { version = "0.38", features = ["fs"] }
 
 [features]
 default = ["std", "glam"]

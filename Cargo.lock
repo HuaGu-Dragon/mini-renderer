@@ -1429,6 +1429,7 @@ dependencies = [
  "libm",
  "num-bigint",
  "rayon",
+ "rustix 0.38.44",
  "softbuffer",
  "tobj",
  "winit",
