@@ -9,7 +9,8 @@ updates:
     schedule:
       interval: daily
     # already the default for libraries, but we want it for everything
-    versioning-strategy: "increase-if-necessary"
+    # https://github.com/dependabot/dependabot-core/issues/4009
+    versioning-strategy: "auto"
     ignore:
       - dependency-name: "*"
         # patch and minor updates don't matter for libraries as consumers of this library build
