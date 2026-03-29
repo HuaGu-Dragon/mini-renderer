@@ -1427,6 +1427,7 @@ dependencies = [
  "glam",
  "image",
  "libm",
+ "num-bigint",
  "rayon",
  "softbuffer",
  "tobj",

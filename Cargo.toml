@@ -18,6 +18,10 @@ glam = { version = "0.32.0", optional = true, default-features = false }
 libm = { version = "0.2.16", optional = true }
 rayon = { version = "1.11.0", optional = true }
 
+[target.'cfg(any())'.dependencies]
+num-bigint = "0.4.4"
+
+
 [features]
 default = ["std", "glam"]
 std = ["glam?/std"]
