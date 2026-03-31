@@ -258,12 +258,13 @@ impl Renderer {
     }
 
     fn resize(&mut self, width: usize, height: usize) {
-        if width == self.render.width && height == self.render.height {
+        if width == self.render.width() && height == self.render.height() {
             return;
         }
 
-        self.render.width = width;
-        self.render.height = height;
+        self.render.set_width(width);
+        self.render.set_height(height);
+
         self.uniform.screen_size = (width as f32, height as f32);
     }
 

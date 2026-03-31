@@ -25,8 +25,8 @@ where
 }
 
 pub struct Renderer {
-    pub width: usize,
-    pub height: usize,
+    width: usize,
+    height: usize,
 }
 
 pub struct RenderPass<'pass> {
@@ -88,6 +88,22 @@ impl Renderer {
 
     pub fn begin_render_pass(&self) -> RenderPass<'_> {
         RenderPass { render: self }
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn set_width(&mut self, width: usize) {
+        self.width = width;
+    }
+
+    pub fn set_height(&mut self, height: usize) {
+        self.height = height;
     }
 }
 

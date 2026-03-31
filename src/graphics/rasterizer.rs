@@ -5,10 +5,10 @@ use crate::{
 };
 
 pub struct Fragment<V> {
-    pub x: usize,
-    pub y: usize,
-    pub depth: f32,
-    pub varying: V,
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+    pub(crate) depth: f32,
+    pub(crate) varying: V,
 }
 
 pub trait Rasterizer<Var> {
@@ -44,8 +44,8 @@ pub trait Rasterizer<Var> {
 }
 
 pub struct TriangleRasterizer {
-    pub front_face: FrontFace,
-    pub cull_mode: Option<Face>,
+    pub(crate) front_face: FrontFace,
+    pub(crate) cull_mode: Option<Face>,
 }
 
 impl TriangleRasterizer {
