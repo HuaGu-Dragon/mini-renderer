@@ -84,59 +84,14 @@ renderer
     .draw_indexed(&vertices, indices, &mut framebuffer, &uniform);
 ```
 
-## Examples
-
-### 1. Triangle (`examples/triangle.rs`)
-Simple triangle rendering with depth buffer and animation.
-
-```bash
-cargo run --example triangle
-```
-
-### 2. Texture 2D (`examples/texture2D.rs`)
-Textured quad with bilinear filtering.
-
-```bash
-cargo run --example texture2D
-```
-
-### 3. 3D Model (`examples/model.rs`)
-OBJ model loading and rendering with camera controls.
-
-```bash
-cargo run --example model
-```
-
-Features:
-- Model loading from OBJ files
-- Multi-texture support
-- Camera with WASD + QE controls
-- Depth testing
-
-### 4. Egui Integration (`examples/egui.rs`)
-Integration with Egui for immediate-mode UI rendering.
-
-```bash
-cargo run --example egui
-```
-
-Features:
-- Batched mesh rendering
-- Per-batch texture switching
-- Clip rectangle support
-- Color blending for transparency
-
-### 5. Sandbox (`examples/sandbox.rs`)
-Experimental rendering sandbox.
-
 ## Architecture
 
 ### Module Structure
 
 ```
 src/
-├── lib.rs              # Library entry point
-├── renderer.rs         # Rendering pass and pipeline binding
+├── lib.rs             # Library entry point
+├── renderer.rs        # Rendering pass and pipeline binding
 ├── pipeline/
 │   ├── mod.rs         # Pipeline definition
 │   ├── shader.rs      # Vertex/Fragment shader traits
@@ -281,22 +236,10 @@ The `with_depth()` and `with_blend()` methods use Rust's type system with zero r
 ### Optional
 - **glam** (0.32.0) - Math library (enabled by default)
 
-### Development
-- **egui** (0.33.3) - UI framework for example
-- **winit** (0.30.12) - Window management
-- **softbuffer** - Software framebuffer
-- **image** (0.25.9) - Image loading
-- **tobj** (4.0.3) - OBJ model loading
-
 ## Limitations
 
 ### What's Not Implemented
 - GPU acceleration (pure software rasterization)
-- Advanced lighting models (Blinn-Phong, PBR)
-- Shadow mapping
-- MSAA or post-processing effects
-- Normal mapping or displacement mapping
-- Deferred rendering
 - Compute shaders
 
 ### Design Constraints
@@ -323,115 +266,6 @@ The codebase is organized for clarity and extensibility:
 ## License
 
 MIT
-
-## Project Structure Overview
-
-```
-mini-renderer/
-├── Cargo.toml             # Project manifest
-├── README.md              # This file
-├── src/                   # Library code
-│   ├── lib.rs             # Module exports
-│   ├── renderer.rs        # High-level rendering API
-│   ├── pipeline.rs        # Pipeline implementation
-│   ├── graphics.rs        # Graphics module
-│   └── math.rs            # Math utilities
-├── examples/              # Runnable examples
-│   ├── triangle.rs        # Basic triangle
-│   ├── texture2D.rs       # Textured quad
-│   ├── model.rs           # 3D model rendering
-│   ├── egui.rs            # UI integration
-│   └── ...
-└── assets/                # Example assets (models, images)
-```
-
-## Getting Started
-
-### Prerequisites
-- Rust
-- Cargo
-
-### Installation
-
-```bash
-git clone https://github.com/HuaGu-Dragon/mini-renderer.git
-cd mini-renderer
-```
-
-### Run Examples
-
-```bash
-# Basic triangle
-cargo run --example triangle -r
-
-# 3D model with texture
-cargo run --example model -r
-
-# UI rendering with Egui
-cargo run --example egui -r
-```
-
-### Use in Your Project
-
-Add to `Cargo.toml`:
-```toml
-[dependencies]
-mini-renderer = { git = "https://github.com/HuaGu-Dragon/mini-renderer.git"}
-```
-
-## Technical Details
-
-### Rendering Pipeline Flow
-
-```
-1. Vertex Processing
-   Input: Vertices + Uniform
-   Output: Transformed vertices with Varying data
-
-2. Primitive Assembly
-   Input: Transformed vertices + Index buffer
-   Output: Primitives (triangles)
-
-3. Rasterization
-   Input: Primitives
-   Output: Fragments (per-pixel data)
-
-4. Fragment Processing
-   Input: Fragments + Varying
-   Output: Final color (with optional blending)
-
-5. Framebuffer Write
-   Input: Final colors
-   Output: Displayed image
-```
-
-### Interpolation Strategy
-
-Barycentric coordinate interpolation for smooth gradients across triangles:
-```
-interpolated = w0 * v0 + w1 * v1 + w2 * v2
-```
-
-Where `w0, w1, w2` are barycentric weights (summing to 1.0).
-
-### Depth Testing
-
-Simple depth test: write fragment if `z < existing_z`
-
-```rust
-if f.depth < db_chunk[local_idx] {
-    // Write fragment
-    fb_chunk[local_idx] = output;
-    db_chunk[local_idx] = f.depth;
-}
-```
-
-### Color Blending
-
-Standard "over" blending with customizable implementation:
-```rust
-result = src + dst * (1 - src.alpha)
-```
 
 ## Contact & Support
 
