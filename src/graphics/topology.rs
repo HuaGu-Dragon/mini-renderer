@@ -19,9 +19,16 @@ impl PrimitiveTopology {
             _marker: PhantomData,
         }
     }
+
+    pub fn triangle_strip() -> PrimitiveTopology<TriangleStrip> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
 }
 
 pub struct TrangleList;
+pub struct TriangleStrip;
 
 pub trait Primitive<Var> {
     type Rasterizer: Rasterizer<Var>;
@@ -60,6 +67,19 @@ impl<Var> Primitive<Var> for TrangleList {
     {
         let (chunks, _) = vertexs.as_chunks::<3>();
         chunks.iter().copied()
+    }
+}
+
+impl<Var> Primitive<Var> for TriangleStrip {
+    type Rasterizer = TriangleRasterizer;
+
+    type Primitive<V> = [VertexOutput<V>; 3];
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        vertexs.array_windows::<3>().copied()
     }
 }
 
