@@ -25,10 +25,17 @@ impl PrimitiveTopology {
             _marker: PhantomData,
         }
     }
+
+    pub fn triangle_fan() -> PrimitiveTopology<TriangleFan> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
 }
 
 pub struct TrangleList;
 pub struct TriangleStrip;
+pub struct TriangleFan;
 
 pub trait Primitive<Var> {
     type Rasterizer: Rasterizer<Var>;
@@ -80,6 +87,24 @@ impl<Var> Primitive<Var> for TriangleStrip {
         Var: Varying,
     {
         vertexs.array_windows::<3>().copied()
+    }
+}
+
+impl<Var> Primitive<Var> for TriangleFan {
+    type Rasterizer = TriangleRasterizer;
+
+    type Primitive<V> = [VertexOutput<V>; 3];
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        vertexs.first().into_iter().flat_map(move |&first| {
+            vertexs[1..]
+                .array_windows::<2>()
+                .copied()
+                .map(move |[v1, v2]| [first, v1, v2])
+        })
     }
 }
 
