@@ -75,7 +75,7 @@ pub struct WithBlend;
 ///     .draw_indexed(vertices, indices, framebuffer, &uniform);
 /// ```
 pub struct BoundPipeline<'a, T, R, V: VertexShader, F, D = NoDepth, B = NoBlend> {
-    render: &'a Renderer,
+    renderer: &'a Renderer,
     pipeline: &'a mut Pipeline<T, R, V, F>,
     depth_mode: D,
     _blend_mode: PhantomData<B>,
@@ -113,7 +113,7 @@ impl<'pass> RenderPass<'pass> {
         pipeline: &'a mut Pipeline<T, R, V, F>,
     ) -> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlend> {
         BoundPipeline {
-            render: self.render,
+            renderer: self.render,
             pipeline,
             depth_mode: NoDepth,
             _blend_mode: PhantomData,
@@ -129,7 +129,7 @@ impl<'a, T, R, V: VertexShader, F, B> BoundPipeline<'a, T, R, V, F, NoDepth, B> 
         depth_buffer: &'a mut [f32],
     ) -> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, B> {
         BoundPipeline {
-            render: self.render,
+            renderer: self.renderer,
             pipeline: self.pipeline,
             depth_mode: WithDepth(depth_buffer),
             _blend_mode: PhantomData,
@@ -142,7 +142,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
     /// Enable blending (requires bidirectional From/Into conversion).
     pub fn with_blend(self) -> BoundPipeline<'a, T, R, V, F, NoDepth, WithBlend> {
         BoundPipeline {
-            render: self.render,
+            renderer: self.renderer,
             pipeline: self.pipeline,
             depth_mode: NoDepth,
             _blend_mode: PhantomData,
@@ -154,7 +154,7 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
     /// Enable blending (requires bidirectional From/Into conversion).
     pub fn with_blend(self) -> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, WithBlend> {
         BoundPipeline {
-            render: self.render,
+            renderer: self.renderer,
             pipeline: self.pipeline,
             depth_mode: self.depth_mode,
             _blend_mode: PhantomData,
@@ -204,8 +204,8 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, NoBlen
             vertices,
             indexed,
             framebuffer,
-            self.render.width,
-            self.render.height,
+            self.renderer.width,
+            self.renderer.height,
             uniform,
         );
     }
@@ -255,8 +255,8 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, NoDepth, WithBl
             vertices,
             indexed,
             framebuffer,
-            self.render.width,
-            self.render.height,
+            self.renderer.width,
+            self.renderer.height,
             uniform,
         );
     }
@@ -305,8 +305,8 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
             indexed,
             self.depth_mode.0,
             framebuffer,
-            self.render.width,
-            self.render.height,
+            self.renderer.width,
+            self.renderer.height,
             uniform,
         );
     }
@@ -357,8 +357,8 @@ impl<'a, T, R, V: VertexShader, F> BoundPipeline<'a, T, R, V, F, WithDepth<'a>, 
             indexed,
             self.depth_mode.0,
             framebuffer,
-            self.render.width,
-            self.render.height,
+            self.renderer.width,
+            self.renderer.height,
             uniform,
         );
     }
