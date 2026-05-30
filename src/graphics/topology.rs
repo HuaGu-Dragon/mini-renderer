@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use crate::{
     graphics::{
         FrontFace,
-        rasterizer::{Rasterizer, TriangleRasterizer},
+        rasterizer::{LineRasterizer, Rasterizer, TriangleRasterizer},
     },
     pipeline::{shader::VertexOutput, varying::Varying},
 };
@@ -14,6 +14,12 @@ pub struct PrimitiveTopology<T = ()> {
 }
 
 impl PrimitiveTopology {
+    pub fn point_list() -> PrimitiveTopology<PointList> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
+
     pub fn trangle_list() -> PrimitiveTopology<TrangleList> {
         PrimitiveTopology {
             _marker: PhantomData,
@@ -32,6 +38,12 @@ impl PrimitiveTopology {
         }
     }
 }
+
+pub struct PointList;
+
+pub struct LineList;
+pub struct LineStrip;
+pub struct LineLoop;
 
 pub struct TrangleList;
 pub struct TriangleStrip;
@@ -57,6 +69,19 @@ pub trait Primitive<Var> {
     // -> impl Iterator<Item = Self::Primitive<'a, Var>>
     where
         Var: Varying;
+}
+
+impl<Var> Primitive<Var> for LineList {
+    type Rasterizer = LineRasterizer;
+    type Primitive<V> = [VertexOutput<V>; 2];
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        let (chunks, _) = vertexs.as_chunks::<2>();
+        chunks.iter().copied()
+    }
 }
 
 impl<Var> Primitive<Var> for TrangleList {
