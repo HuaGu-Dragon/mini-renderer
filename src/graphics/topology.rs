@@ -26,6 +26,12 @@ impl PrimitiveTopology {
         }
     }
 
+    pub fn line_loop() -> PrimitiveTopology<LineLoop> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
+
     pub fn trangle_list() -> PrimitiveTopology<TrangleList> {
         PrimitiveTopology {
             _marker: PhantomData,
@@ -99,6 +105,26 @@ impl<Var> Primitive<Var> for LineStrip {
         Var: Varying,
     {
         vertexs.array_windows::<2>().copied()
+    }
+}
+
+impl<Var> Primitive<Var> for LineLoop {
+    type Rasterizer = LineRasterizer;
+    type Primitive<V> = [VertexOutput<V>; 2];
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        vertexs.first().into_iter().flat_map(move |&first| {
+            vertexs
+                .array_windows::<2>()
+                .copied()
+                .chain(std::iter::once([
+                    vertexs.last().copied().unwrap_or(first),
+                    first,
+                ]))
+        })
     }
 }
 

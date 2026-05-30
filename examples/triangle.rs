@@ -162,7 +162,7 @@ impl Renderer {
             Vertex,
             Fragment,
             PrimitiveState {
-                topology: PrimitiveTopology::trangle_list(),
+                topology: PrimitiveTopology::line_loop(),
                 front_face: mini_renderer::graphics::FrontFace::Ccw,
                 cull_mode: None,
             },
