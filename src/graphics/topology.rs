@@ -14,7 +14,13 @@ pub struct PrimitiveTopology<T = ()> {
 }
 
 impl PrimitiveTopology {
-    pub fn point_list() -> PrimitiveTopology<PointList> {
+    pub fn line_list() -> PrimitiveTopology<LineList> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn line_strip() -> PrimitiveTopology<LineStrip> {
         PrimitiveTopology {
             _marker: PhantomData,
         }
@@ -81,6 +87,18 @@ impl<Var> Primitive<Var> for LineList {
     {
         let (chunks, _) = vertexs.as_chunks::<2>();
         chunks.iter().copied()
+    }
+}
+
+impl<Var> Primitive<Var> for LineStrip {
+    type Rasterizer = LineRasterizer;
+    type Primitive<V> = [VertexOutput<V>; 2];
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        vertexs.array_windows::<2>().copied()
     }
 }
 
