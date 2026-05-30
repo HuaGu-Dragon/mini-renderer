@@ -43,9 +43,219 @@ pub trait Rasterizer<Var> {
         Var: Varying;
 }
 
+pub struct LineRasterizer;
+
 pub struct TriangleRasterizer {
     pub(crate) front_face: FrontFace,
     pub(crate) cull_mode: Option<Face>,
+}
+
+fn clip_to_screen(clip_pos: Vec4, width: usize, height: usize) -> Vec4 {
+    let ndc_x = clip_pos.x / clip_pos.w;
+    let ndc_y = clip_pos.y / clip_pos.w;
+    let ndc_z = clip_pos.z / clip_pos.w;
+
+    let screen_x = (ndc_x + 1.) * 0.5 * width as f32;
+    let screen_y = (1. - ndc_y) * 0.5 * height as f32;
+    let screen_z = (ndc_z + 1.) * 0.5;
+
+    Vec4::new(screen_x, screen_y, screen_z, clip_pos.w)
+}
+
+struct LineRasterization<Var> {
+    x: i32,
+    y: i32,
+    end_x: i32,
+    end_y: i32,
+    dx: i32,
+    dy: i32,
+    sx: i32,
+    sy: i32,
+    err: i32,
+    step_index: i32,
+    steps: i32,
+    inv_w0: f32,
+    inv_w1: f32,
+    z0: f32,
+    z1: f32,
+    v0_varying: Var,
+    v1_varying: Var,
+    tile_x: i32,
+    tile_y: i32,
+    tile_max_x: i32,
+    tile_max_y: i32,
+    done: bool,
+}
+
+impl<Var: Varying> LineRasterization<Var> {
+    fn new(
+        v0: VertexOutput<Var>,
+        v1: VertexOutput<Var>,
+        tile_bounds: [usize; 4],
+        width: usize,
+        height: usize,
+    ) -> Self {
+        let v0_varying = v0.varying;
+        let v1_varying = v1.varying;
+        let v0 = clip_to_screen(v0.position, width, height);
+        let v1 = clip_to_screen(v1.position, width, height);
+        let inv_w0 = 1.0 / v0.w;
+        let inv_w1 = 1.0 / v1.w;
+        let z0 = v0.z;
+        let z1 = v1.z;
+        let [tile_x, tile_y, tile_width, tile_height] = tile_bounds;
+
+        if width == 0 || height == 0 || tile_width == 0 || tile_height == 0 {
+            return Self {
+                x: 0,
+                y: 0,
+                end_x: 0,
+                end_y: 0,
+                dx: 0,
+                dy: 0,
+                sx: 0,
+                sy: 0,
+                err: 0,
+                step_index: 0,
+                steps: 0,
+                inv_w0,
+                inv_w1,
+                z0,
+                z1,
+                v0_varying,
+                v1_varying,
+                tile_x: 0,
+                tile_y: 0,
+                tile_max_x: 0,
+                tile_max_y: 0,
+                done: true,
+            };
+        }
+
+        let max_screen_x = width.saturating_sub(1).min(i32::MAX as usize) as i32;
+        let max_screen_y = height.saturating_sub(1).min(i32::MAX as usize) as i32;
+
+        let x0 = ((v0.x + 0.5).floor_custom() as i32).clamp(0, max_screen_x);
+        let y0 = ((v0.y + 0.5).floor_custom() as i32).clamp(0, max_screen_y);
+        let x1 = ((v1.x + 0.5).floor_custom() as i32).clamp(0, max_screen_x);
+        let y1 = ((v1.y + 0.5).floor_custom() as i32).clamp(0, max_screen_y);
+
+        let tile_x = tile_x.min(i32::MAX as usize) as i32;
+        let tile_y = tile_y.min(i32::MAX as usize) as i32;
+        let tile_max_x = tile_x.saturating_add(tile_width.min(i32::MAX as usize) as i32);
+        let tile_max_y = tile_y.saturating_add(tile_height.min(i32::MAX as usize) as i32);
+
+        let line_min_x = x0.min(x1);
+        let line_max_x = x0.max(x1);
+        let line_min_y = y0.min(y1);
+        let line_max_y = y0.max(y1);
+
+        let done = line_max_x < tile_x
+            || line_min_x >= tile_max_x
+            || line_max_y < tile_y
+            || line_min_y >= tile_max_y;
+
+        let dx = (x1 - x0).abs();
+        let dy = -(y1 - y0).abs();
+        let sx = if x0 < x1 { 1 } else { -1 };
+        let sy = if y0 < y1 { 1 } else { -1 };
+
+        Self {
+            x: x0,
+            y: y0,
+            end_x: x1,
+            end_y: y1,
+            dx,
+            dy,
+            sx,
+            sy,
+            err: dx + dy,
+            step_index: 0,
+            steps: dx.max(-dy),
+            inv_w0,
+            inv_w1,
+            z0,
+            z1,
+            v0_varying,
+            v1_varying,
+            tile_x,
+            tile_y,
+            tile_max_x,
+            tile_max_y,
+            done,
+        }
+    }
+
+    fn advance(&mut self) {
+        let e2 = self.err * 2;
+
+        if e2 >= self.dy {
+            self.err += self.dy;
+            self.x += self.sx;
+        }
+
+        if e2 <= self.dx {
+            self.err += self.dx;
+            self.y += self.sy;
+        }
+    }
+}
+
+impl<Var: Varying> Iterator for LineRasterization<Var> {
+    type Item = Fragment<Var>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while !self.done {
+            let x = self.x;
+            let y = self.y;
+            let step_index = self.step_index;
+
+            if x == self.end_x && y == self.end_y {
+                self.done = true;
+            } else {
+                self.advance();
+            }
+
+            self.step_index += 1;
+
+            if x < self.tile_x || x >= self.tile_max_x || y < self.tile_y || y >= self.tile_max_y {
+                continue;
+            }
+
+            let t = if self.steps == 0 {
+                0.0
+            } else {
+                step_index as f32 / self.steps as f32
+            };
+
+            let w0 = 1.0 - t;
+            let w1 = t;
+            let persp_w0 = w0 * self.inv_w0;
+            let persp_w1 = w1 * self.inv_w1;
+            let sum = persp_w0 + persp_w1;
+            let (w0, w1) = if sum != 0.0 {
+                (persp_w0 / sum, persp_w1 / sum)
+            } else {
+                (w0, w1)
+            };
+
+            return Some(Fragment {
+                x: x as usize,
+                y: y as usize,
+                depth: Varying::interpolate(self.z0, self.z1, self.z0, w0, w1, 0.0),
+                varying: Varying::interpolate(
+                    self.v0_varying,
+                    self.v1_varying,
+                    self.v0_varying,
+                    w0,
+                    w1,
+                    0.0,
+                ),
+            });
+        }
+
+        None
+    }
 }
 
 impl TriangleRasterizer {
@@ -54,18 +264,6 @@ impl TriangleRasterizer {
             front_face,
             cull_mode,
         }
-    }
-
-    fn clip_to_screen(&self, clip_pos: Vec4, width: usize, height: usize) -> Vec4 {
-        let ndc_x = clip_pos.x / clip_pos.w;
-        let ndc_y = clip_pos.y / clip_pos.w;
-        let ndc_z = clip_pos.z / clip_pos.w;
-
-        let screen_x = (ndc_x + 1.) * 0.5 * width as f32;
-        let screen_y = (1. - ndc_y) * 0.5 * height as f32;
-        let screen_z = (ndc_z + 1.) * 0.5;
-
-        Vec4::new(screen_x, screen_y, screen_z, clip_pos.w)
     }
 
     fn edge_function(a: Vec2, b: Vec2, c: Vec2) -> f32 {
@@ -234,6 +432,28 @@ impl TriangleRasterizer {
     }
 }
 
+impl<Var> Rasterizer<Var> for LineRasterizer {
+    type Primitive<V> = [VertexOutput<V>; 2];
+
+    fn new(_front_face: FrontFace, _cull_mode: Option<Face>) -> Self {
+        Self {}
+    }
+
+    fn rasterize_tile(
+        &self,
+        primitive: impl Iterator<Item = Self::Primitive<Var>>,
+        width: usize,
+        height: usize,
+        tile_bounds: [usize; 4],
+    ) -> impl Iterator<Item = Fragment<Var>>
+    where
+        Var: Varying,
+    {
+        primitive
+            .flat_map(move |[v0, v1]| LineRasterization::new(v0, v1, tile_bounds, width, height))
+    }
+}
+
 impl<Var> Rasterizer<Var> for TriangleRasterizer {
     // type Primitive<'a, V>
     //     = &'a [VertexOutput<V>; 3]
@@ -267,9 +487,9 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
                 ) {
                     None
                 } else {
-                    let v0 = self.clip_to_screen(vertex_output.position, width, height);
-                    let v1 = self.clip_to_screen(vertex_output1.position, width, height);
-                    let v2 = self.clip_to_screen(vertex_output2.position, width, height);
+                    let v0 = clip_to_screen(vertex_output.position, width, height);
+                    let v1 = clip_to_screen(vertex_output1.position, width, height);
+                    let v2 = clip_to_screen(vertex_output2.position, width, height);
 
                     Some(self.rasterize_triangle(
                         [v0, v1, v2],
@@ -334,9 +554,8 @@ mod tests {
 
     #[test]
     fn test_clip_to_screen_ndc_center() {
-        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
         let clip_pos = Vec4::new(0.0, 0.0, 0.0, 1.0); // NDC center
-        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+        let screen_pos = clip_to_screen(clip_pos, 100, 100);
 
         // NDC center (0,0) should map to screen center (50, 50)
         assert!(approx_eq(screen_pos.x, 50.0));
@@ -346,9 +565,8 @@ mod tests {
 
     #[test]
     fn test_clip_to_screen_ndc_left_bottom() {
-        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
         let clip_pos = Vec4::new(-1.0, -1.0, -1.0, 1.0); // NDC left-bottom
-        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+        let screen_pos = clip_to_screen(clip_pos, 100, 100);
 
         // NDC (-1,-1) should map to screen (0, 100)
         assert!(approx_eq(screen_pos.x, 0.0));
@@ -357,9 +575,8 @@ mod tests {
 
     #[test]
     fn test_clip_to_screen_ndc_right_top() {
-        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
         let clip_pos = Vec4::new(1.0, 1.0, 1.0, 1.0); // NDC right-top
-        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+        let screen_pos = clip_to_screen(clip_pos, 100, 100);
 
         // NDC (1,1) should map to screen (100, 0)
         assert!(approx_eq(screen_pos.x, 100.0));
@@ -368,9 +585,8 @@ mod tests {
 
     #[test]
     fn test_clip_to_screen_perspective() {
-        let rasterizer = TriangleRasterizer::new(FrontFace::Ccw, None);
         let clip_pos = Vec4::new(1.0, 1.0, 1.0, 2.0); // w != 1.0
-        let screen_pos = rasterizer.clip_to_screen(clip_pos, 100, 100);
+        let screen_pos = clip_to_screen(clip_pos, 100, 100);
 
         // Perspective division: 1.0 / 2.0 = 0.5
         // screen_x = (0.5 + 1.0) * 0.5 * 100 = 75
