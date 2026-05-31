@@ -177,6 +177,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
     pub fn draw<Var, U, C>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [C], uniform: &U)
     where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Send + Sync,
@@ -197,6 +198,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         uniform: &U,
     ) where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Send + Sync,
@@ -226,6 +228,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
     pub fn draw<Var, U, C, O>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [O], uniform: &U)
     where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Send + Sync,
@@ -247,6 +250,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         uniform: &U,
     ) where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Send + Sync,
@@ -277,6 +281,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
     pub fn draw<Var, U, C>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [C], uniform: &U)
     where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Send + Sync,
@@ -297,6 +302,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         uniform: &U,
     ) where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Send + Sync,
@@ -327,6 +333,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
     pub fn draw<Var, U, C, O>(&mut self, vertices: &[V::Vertex], framebuffer: &mut [O], uniform: &U)
     where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Send + Sync,
@@ -348,6 +355,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         uniform: &U,
     ) where
         T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Send + Sync,
