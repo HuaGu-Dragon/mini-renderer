@@ -120,7 +120,7 @@ impl<Var> Primitive<Var> for LineLoop {
             vertexs
                 .array_windows::<2>()
                 .copied()
-                .chain(std::iter::once([
+                .chain(core::iter::once([
                     vertexs.last().copied().unwrap_or(first),
                     first,
                 ]))
