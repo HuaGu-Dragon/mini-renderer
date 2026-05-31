@@ -74,7 +74,7 @@ pub trait Primitive<Var> {
     // where
     //     V: 'a,
     //     Var: 'a;
-    type Primitive<V>;
+    // type Primitive<V>;
 
     fn rasterizer(
         front_face: FrontFace,
@@ -83,7 +83,9 @@ pub trait Primitive<Var> {
         Self::Rasterizer::new(front_face, cull_mode)
     }
 
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     // -> impl Iterator<Item = Self::Primitive<'a, Var>>
     where
         Var: Varying;
@@ -91,9 +93,10 @@ pub trait Primitive<Var> {
 
 impl<Var> Primitive<Var> for PointList {
     type Rasterizer = PointRasterizer;
-    type Primitive<V> = VertexOutput<V>;
 
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {
@@ -103,9 +106,10 @@ impl<Var> Primitive<Var> for PointList {
 
 impl<Var> Primitive<Var> for LineList {
     type Rasterizer = LineRasterizer;
-    type Primitive<V> = [VertexOutput<V>; 2];
 
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {
@@ -116,9 +120,10 @@ impl<Var> Primitive<Var> for LineList {
 
 impl<Var> Primitive<Var> for LineStrip {
     type Rasterizer = LineRasterizer;
-    type Primitive<V> = [VertexOutput<V>; 2];
 
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {
@@ -128,9 +133,10 @@ impl<Var> Primitive<Var> for LineStrip {
 
 impl<Var> Primitive<Var> for LineLoop {
     type Rasterizer = LineRasterizer;
-    type Primitive<V> = [VertexOutput<V>; 2];
 
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {
@@ -148,14 +154,15 @@ impl<Var> Primitive<Var> for LineLoop {
 
 impl<Var> Primitive<Var> for TrangleList {
     type Rasterizer = TriangleRasterizer;
-    type Primitive<V> = [VertexOutput<V>; 3];
     // type Primitive<'a, V>
     //     = &'a [VertexOutput<V>; 3]
     // where
     //     V: 'a,
     //     Var: 'a;
 
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {
@@ -167,9 +174,9 @@ impl<Var> Primitive<Var> for TrangleList {
 impl<Var> Primitive<Var> for TriangleStrip {
     type Rasterizer = TriangleRasterizer;
 
-    type Primitive<V> = [VertexOutput<V>; 3];
-
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {
@@ -180,9 +187,9 @@ impl<Var> Primitive<Var> for TriangleStrip {
 impl<Var> Primitive<Var> for TriangleFan {
     type Rasterizer = TriangleRasterizer;
 
-    type Primitive<V> = [VertexOutput<V>; 3];
-
-    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    fn assemble(
+        vertexs: &[VertexOutput<Var>],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
     where
         Var: Varying,
     {

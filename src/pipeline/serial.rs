@@ -11,8 +11,8 @@ use crate::{
     },
 };
 
-impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
-    pub(crate) fn new(rasterizer: R, vertex_shader: V, fragment_shader: F) -> Self {
+impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
+    pub(crate) fn new(rasterizer: T::Rasterizer, vertex_shader: V, fragment_shader: F) -> Self {
         Self {
             _marker: PhantomData,
             rasterizer,
@@ -33,8 +33,9 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         height: usize,
         uniform: &U,
     ) where
-        T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
-        R: Rasterizer<Var> + Sync,
+        // T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
+        T: Primitive<Var>,
+        // R: Rasterizer<Var> + Sync,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Send + Sync,
@@ -73,8 +74,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         height: usize,
         uniform: &U,
     ) where
-        T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
-        R: Rasterizer<Var> + Sync,
+        T: Primitive<Var>,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Send + Sync,
@@ -116,8 +116,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         height: usize,
         uniform: &U,
     ) where
-        T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
-        R: Rasterizer<Var> + Sync,
+        T: Primitive<Var>,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U> + Sync,
         Var: Varying + Send + Sync,
@@ -161,8 +160,7 @@ impl<T, R, V: VertexShader, F> Pipeline<T, R, V, F> {
         height: usize,
         uniform: &U,
     ) where
-        T: Primitive<Var, Rasterizer = R, Primitive<Var> = R::Primitive<Var>>,
-        R: Rasterizer<Var> + Sync,
+        T: Primitive<Var>,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
         F: FragmentShader<Varying = Var, Uniform = U, Output = C> + Sync,
         Var: Varying + Send + Sync,

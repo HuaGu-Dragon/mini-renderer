@@ -7,7 +7,6 @@ use egui::TextureId;
 use egui_demo_lib::DemoWindows;
 use egui_winit::State;
 use mini_renderer::graphics::primitive::PrimitiveState;
-use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
@@ -162,7 +161,7 @@ impl ApplicationHandler for App {
 
 struct Renderer {
     render: mini_renderer::renderer::Renderer,
-    pipeline: Pipeline<TrangleList, TriangleRasterizer, Vertex, Fragment>,
+    pipeline: Pipeline<TrangleList, Vertex, Fragment>,
     egui_ctx: egui::Context,
     egui_state: egui_winit::State,
     demo: DemoWindows,

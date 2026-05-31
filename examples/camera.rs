@@ -5,7 +5,6 @@ use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
 use mini_renderer::graphics::primitive::PrimitiveState;
-use mini_renderer::graphics::rasterizer::TriangleRasterizer;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
 use mini_renderer::math::{Vec3, Vec4};
 use mini_renderer::pipeline::Pipeline;
@@ -154,7 +153,7 @@ struct Renderer {
     height: usize,
     buffer: Vec<MaybeUninit<Pixel>>,
     depth_buffer: Vec<f32>,
-    pipeline: Pipeline<TrangleList, TriangleRasterizer, Vertex, Fragment>,
+    pipeline: Pipeline<TrangleList, Vertex, Fragment>,
     camera: Camera,
 }
 
