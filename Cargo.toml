@@ -21,7 +21,7 @@ rayon = { version = "1.11.0", optional = true }
 mini-renderer-derive = { path = "./mini-renderer-derive", optional = true }
 
 [features]
-default = ["std", "glam", "derive"]
+default = ["std", "glam", "derive", "rayon"]
 std = ["glam?/std"]
 rayon = ["dep:rayon"]
 glam = ["dep:glam"]
