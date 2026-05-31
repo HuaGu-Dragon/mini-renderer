@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use crate::{
     graphics::{
         FrontFace,
-        rasterizer::{LineRasterizer, Rasterizer, TriangleRasterizer},
+        rasterizer::{LineRasterizer, PointRasterizer, Rasterizer, TriangleRasterizer},
     },
     pipeline::{shader::VertexOutput, varying::Varying},
 };
@@ -14,6 +14,12 @@ pub struct PrimitiveTopology<T = ()> {
 }
 
 impl PrimitiveTopology {
+    pub fn point_list() -> PrimitiveTopology<PointList> {
+        PrimitiveTopology {
+            _marker: PhantomData,
+        }
+    }
+
     pub fn line_list() -> PrimitiveTopology<LineList> {
         PrimitiveTopology {
             _marker: PhantomData,
@@ -81,6 +87,18 @@ pub trait Primitive<Var> {
     // -> impl Iterator<Item = Self::Primitive<'a, Var>>
     where
         Var: Varying;
+}
+
+impl<Var> Primitive<Var> for PointList {
+    type Rasterizer = PointRasterizer;
+    type Primitive<V> = VertexOutput<V>;
+
+    fn assemble(vertexs: &[VertexOutput<Var>]) -> impl Iterator<Item = Self::Primitive<Var>>
+    where
+        Var: Varying,
+    {
+        vertexs.iter().copied()
+    }
 }
 
 impl<Var> Primitive<Var> for LineList {

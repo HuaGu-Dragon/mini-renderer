@@ -43,6 +43,8 @@ pub trait Rasterizer<Var> {
         Var: Varying;
 }
 
+pub struct PointRasterizer;
+
 pub struct LineRasterizer;
 
 pub struct TriangleRasterizer {
@@ -432,11 +434,52 @@ impl TriangleRasterizer {
     }
 }
 
+impl<Var> Rasterizer<Var> for PointRasterizer {
+    type Primitive<V> = VertexOutput<Var>;
+
+    fn new(_front_face: FrontFace, _cull_mode: Option<Face>) -> Self {
+        Self
+    }
+
+    fn rasterize_tile(
+        &self,
+        primitive: impl Iterator<Item = Self::Primitive<Var>>,
+        width: usize,
+        height: usize,
+        tile_bounds: [usize; 4],
+    ) -> impl Iterator<Item = Fragment<Var>>
+    where
+        Var: Varying,
+    {
+        primitive.filter_map(move |v| {
+            let point = clip_to_screen(v.position, width, height);
+
+            let max_screen_x = width.saturating_sub(1).min(i32::MAX as usize);
+            let max_screen_y = height.saturating_sub(1).min(i32::MAX as usize);
+
+            let x = ((point.x + 0.5).floor_custom() as usize).clamp(0, max_screen_x);
+            let y = ((point.y + 0.5).floor_custom() as usize).clamp(0, max_screen_y);
+
+            let [tile_x, tile_y, tile_max_x, tile_max_y] = tile_bounds;
+            if x < tile_x || x >= tile_max_x || y < tile_y || y >= tile_max_y {
+                None
+            } else {
+                Some(Fragment {
+                    x,
+                    y,
+                    depth: point.z,
+                    varying: v.varying,
+                })
+            }
+        })
+    }
+}
+
 impl<Var> Rasterizer<Var> for LineRasterizer {
     type Primitive<V> = [VertexOutput<V>; 2];
 
     fn new(_front_face: FrontFace, _cull_mode: Option<Face>) -> Self {
-        Self {}
+        Self
     }
 
     fn rasterize_tile(
