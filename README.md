@@ -137,10 +137,9 @@ Methods available depend on state:
 .draw_indexed(vertices, indices, framebuffer, uniform)
 ```
 
-#### `Pipeline<T, R, V, F>`
+#### `Pipeline<T, V, F>`
 Low-level rendering pipeline:
 - `T`: Primitive type
-- `R`: Rasterizer implementation
 - `V`: Vertex shader
 - `F`: Fragment shader
 
