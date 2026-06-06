@@ -35,13 +35,13 @@ pub fn derive_varying(input: TokenStream) -> TokenStream {
             }
             .into()
         }
-        syn::Data::Enum(_) => {
-            syn::Error::new_spanned(&input.ident, "Varying cannot be derived for enums")
+        syn::Data::Enum(data) => {
+            syn::Error::new_spanned(data.enum_token, "Varying cannot be derived for enums")
                 .to_compile_error()
                 .into()
         }
-        syn::Data::Union(_) => {
-            syn::Error::new_spanned(&input.ident, "Varying cannot be derived for unions")
+        syn::Data::Union(data) => {
+            syn::Error::new_spanned(data.union_token, "Varying cannot be derived for unions")
                 .to_compile_error()
                 .into()
         }

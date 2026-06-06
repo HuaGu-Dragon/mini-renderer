@@ -1,5 +1,5 @@
 error: Varying cannot be derived for enums
- --> tests/fail/derive_enum.rs:4:10
+ --> tests/fail/derive_enum.rs:4:5
   |
 4 | pub enum VaryingTest {
-  |          ^^^^^^^^^^^
+  |     ^^^^
