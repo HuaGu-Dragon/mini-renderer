@@ -6,18 +6,15 @@ use syn::{DeriveInput, parse_macro_input, parse_quote};
 pub fn derive_varying(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    let ident = input.ident;
-    let generics = add_trait_bounds(input.generics);
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let varying = {
-        match input.data {
-            syn::Data::Struct(ref data) => {
-                let fields = &data.fields;
-                fields.iter().enumerate().map(|(n,f)| {
-                if let Some(ident )= &f.ident {
+    match &input.data {
+        syn::Data::Struct(data) => {
+            let ident = input.ident;
+            let generics = add_trait_bounds(input.generics);
+            let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+            let varying = data.fields.iter().enumerate().map(|(n,field)| {
+                if let Some(name)= &field.ident {
                     quote! {
-                        #ident: ::mini_renderer::pipeline::varying::Varying::interpolate(v0.#ident, v1.#ident, v2.#ident, w0, w1, w2)
+                        #name: ::mini_renderer::pipeline::varying::Varying::interpolate(v0.#name, v1.#name, v2.#name, w0, w1, w2)
                     }
                 } else {
                     let n = syn::Index::from(n);
@@ -25,27 +22,30 @@ pub fn derive_varying(input: TokenStream) -> TokenStream {
                         #n: ::mini_renderer::pipeline::varying::Varying::interpolate(v0.#n, v1.#n, v2.#n, w0, w1, w2)
                     }
                 }
-            })
-            }
-            syn::Data::Enum(ref _data) => {
-                todo!()
-            }
-            syn::Data::Union(ref _data) => {
-                todo!()
-            }
-        }
-    };
+            });
 
-    quote! {
-        impl #impl_generics ::mini_renderer::pipeline::varying::Varying for #ident #ty_generics #where_clause {
-            fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self {
-                Self {
-                    #(#varying),*
+            quote! {
+                impl #impl_generics ::mini_renderer::pipeline::varying::Varying for #ident #ty_generics #where_clause {
+                    fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self {
+                        Self {
+                            #(#varying),*
+                        }
+                    }
                 }
             }
+            .into()
+        }
+        syn::Data::Enum(_) => {
+            syn::Error::new_spanned(&input.ident, "Varying cannot be derived for enums")
+                .to_compile_error()
+                .into()
+        }
+        syn::Data::Union(_) => {
+            syn::Error::new_spanned(&input.ident, "Varying cannot be derived for unions")
+                .to_compile_error()
+                .into()
         }
     }
-    .into()
 }
 
 fn add_trait_bounds(mut generics: syn::Generics) -> syn::Generics {

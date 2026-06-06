@@ -1,0 +1,5 @@
+error: Varying cannot be derived for unions
+ --> tests/fail/derive_union.rs:4:11
+  |
+4 | pub union VaryingTest {
+  |           ^^^^^^^^^^^
