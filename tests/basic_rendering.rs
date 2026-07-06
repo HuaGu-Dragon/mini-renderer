@@ -64,7 +64,7 @@ fn test_simple_triangle_renders() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -99,7 +99,7 @@ fn test_triangle_without_depth() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -130,7 +130,7 @@ fn test_discard_fragments() {
         TestVertexShader,
         DiscardFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -163,7 +163,7 @@ fn test_multiple_triangles() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -203,7 +203,7 @@ fn test_back_face_culling() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: Some(mini_renderer::graphics::Face::Back),
         },
@@ -237,7 +237,7 @@ fn test_front_face_culling() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: Some(mini_renderer::graphics::Face::Front),
         },
@@ -271,7 +271,7 @@ fn test_depth_testing_closer_wins() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -317,7 +317,7 @@ fn test_indexed_draw() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },

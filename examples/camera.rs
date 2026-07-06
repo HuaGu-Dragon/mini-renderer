@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
 use mini_renderer::graphics::primitive::PrimitiveState;
-use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
+use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::{Vec3, Vec4};
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
@@ -153,7 +153,7 @@ struct Renderer {
     height: usize,
     buffer: Vec<MaybeUninit<Pixel>>,
     depth_buffer: Vec<f32>,
-    pipeline: Pipeline<TrangleList, Vertex, Fragment>,
+    pipeline: Pipeline<TriangleList, Vertex, Fragment>,
     camera: Camera,
 }
 
@@ -186,7 +186,7 @@ impl Renderer {
                 buffer: diffuse_rgba,
             },
             PrimitiveState {
-                topology: PrimitiveTopology::trangle_list(),
+                topology: PrimitiveTopology::triangle_list(),
                 front_face: mini_renderer::graphics::FrontFace::Ccw,
                 cull_mode: None,
             },

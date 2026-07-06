@@ -108,7 +108,7 @@ fn test_vertex_shader_with_scale_uniform() {
         TransformVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -141,7 +141,7 @@ fn test_vertex_shader_different_scales() {
         TransformVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -168,7 +168,7 @@ fn test_vertex_shader_different_scales() {
         TransformVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -200,7 +200,7 @@ fn test_varying_interpolation_single_color() {
         ColorVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -250,7 +250,7 @@ fn test_varying_interpolation_gradient() {
         ColorVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -287,7 +287,7 @@ fn test_passthrough_vertex_shader() {
         PassthroughVertexShader,
         ConstantColorFragmentShader { color: 0xFFFFFFFF },
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -317,7 +317,7 @@ fn test_multiple_shader_combinations() {
         TransformVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -343,7 +343,7 @@ fn test_multiple_shader_combinations() {
         PassthroughVertexShader,
         ConstantColorFragmentShader { color: 0xFF0000FF },
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -371,7 +371,7 @@ fn test_zero_scale_transform() {
         TransformVertexShader,
         ColorFragmentShader,
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },
@@ -401,7 +401,7 @@ fn test_very_small_triangle() {
         PassthroughVertexShader,
         ConstantColorFragmentShader { color: 0xFF0000FF },
         PrimitiveState {
-            topology: PrimitiveTopology::trangle_list(),
+            topology: PrimitiveTopology::triangle_list(),
             front_face: mini_renderer::graphics::FrontFace::Ccw,
             cull_mode: None,
         },

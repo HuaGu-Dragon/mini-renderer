@@ -7,7 +7,7 @@ use egui::TextureId;
 use egui_demo_lib::DemoWindows;
 use egui_winit::State;
 use mini_renderer::graphics::primitive::PrimitiveState;
-use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
+use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
@@ -161,7 +161,7 @@ impl ApplicationHandler for App {
 
 struct Renderer {
     render: mini_renderer::renderer::Renderer,
-    pipeline: Pipeline<TrangleList, Vertex, Fragment>,
+    pipeline: Pipeline<TriangleList, Vertex, Fragment>,
     egui_ctx: egui::Context,
     egui_state: egui_winit::State,
     demo: DemoWindows,
@@ -184,7 +184,7 @@ impl Renderer {
             Vertex,
             Fragment,
             PrimitiveState {
-                topology: PrimitiveTopology::trangle_list(),
+                topology: PrimitiveTopology::triangle_list(),
                 front_face: mini_renderer::graphics::FrontFace::Cw,
                 cull_mode: None,
             },

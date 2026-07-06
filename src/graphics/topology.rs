@@ -38,7 +38,7 @@ impl PrimitiveTopology {
         }
     }
 
-    pub fn trangle_list() -> PrimitiveTopology<TrangleList> {
+    pub fn triangle_list() -> PrimitiveTopology<TriangleList> {
         PrimitiveTopology {
             _marker: PhantomData,
         }
@@ -63,7 +63,7 @@ pub struct LineList;
 pub struct LineStrip;
 pub struct LineLoop;
 
-pub struct TrangleList;
+pub struct TriangleList;
 pub struct TriangleStrip;
 pub struct TriangleFan;
 
@@ -152,7 +152,7 @@ impl<Var> Primitive<Var> for LineLoop {
     }
 }
 
-impl<Var> Primitive<Var> for TrangleList {
+impl<Var> Primitive<Var> for TriangleList {
     type Rasterizer = TriangleRasterizer;
     // type Primitive<'a, V>
     //     = &'a [VertexOutput<V>; 3]

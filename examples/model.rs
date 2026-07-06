@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use image::DynamicImage;
 use mini_renderer::graphics::primitive::PrimitiveState;
-use mini_renderer::graphics::topology::{PrimitiveTopology, TrangleList};
+use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::{Vec3, Vec4};
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
@@ -143,7 +143,7 @@ struct Renderer {
     render: mini_renderer::renderer::Renderer,
     buffer: Vec<MaybeUninit<Pixel>>,
     depth_buffer: Vec<f32>,
-    pipeline: Pipeline<TrangleList, Vertex, Fragment>,
+    pipeline: Pipeline<TriangleList, Vertex, Fragment>,
     camera: Camera,
     model_vertices: Vec<ModelVertex>,
     model_indices: Vec<usize>,
@@ -175,7 +175,7 @@ impl Renderer {
             Vertex,
             Fragment { textures },
             PrimitiveState {
-                topology: PrimitiveTopology::trangle_list(),
+                topology: PrimitiveTopology::triangle_list(),
                 front_face: mini_renderer::graphics::FrontFace::Cw,
                 cull_mode: Some(mini_renderer::graphics::Face::Back),
             },
