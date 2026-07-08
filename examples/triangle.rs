@@ -161,11 +161,7 @@ impl Renderer {
         let mut pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            PrimitiveState {
-                topology: PrimitiveTopology::line_loop(),
-                front_face: mini_renderer::graphics::FrontFace::Ccw,
-                cull_mode: None,
-            },
+            PrimitiveState::new(PrimitiveTopology::line_loop()),
         );
 
         let vertexs = [

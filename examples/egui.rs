@@ -6,6 +6,8 @@ use std::sync::Arc;
 use egui::TextureId;
 use egui_demo_lib::DemoWindows;
 use egui_winit::State;
+
+use mini_renderer::graphics::FrontFace;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::Vec4;
@@ -183,11 +185,7 @@ impl Renderer {
         let pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            PrimitiveState {
-                topology: PrimitiveTopology::triangle_list(),
-                front_face: mini_renderer::graphics::FrontFace::Cw,
-                cull_mode: None,
-            },
+            PrimitiveState::new(PrimitiveTopology::triangle_list()).with_front_face(FrontFace::Cw),
         );
 
         let renderer = mini_renderer::renderer::Renderer::new(width, height);

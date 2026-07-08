@@ -185,11 +185,7 @@ impl Renderer {
             Fragment {
                 buffer: diffuse_rgba,
             },
-            PrimitiveState {
-                topology: PrimitiveTopology::triangle_list(),
-                front_face: mini_renderer::graphics::FrontFace::Ccw,
-                cull_mode: None,
-            },
+            PrimitiveState::new(PrimitiveTopology::triangle_list()),
         );
 
         Self {

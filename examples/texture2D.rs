@@ -4,6 +4,7 @@ use std::num::NonZeroU32;
 use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
+use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
@@ -159,11 +160,7 @@ impl Renderer {
             Fragment {
                 buffer: diffuse_rgba,
             },
-            mini_renderer::graphics::primitive::PrimitiveState {
-                topology: PrimitiveTopology::triangle_list(),
-                front_face: mini_renderer::graphics::FrontFace::Ccw,
-                cull_mode: None,
-            },
+            PrimitiveState::new(PrimitiveTopology::triangle_list()),
         );
 
         Self {

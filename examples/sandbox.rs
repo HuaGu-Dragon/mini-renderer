@@ -197,11 +197,7 @@ impl Renderer {
         let mut pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            PrimitiveState {
-                topology: PrimitiveTopology::triangle_list(),
-                front_face: mini_renderer::graphics::FrontFace::Ccw,
-                cull_mode: None,
-            },
+            PrimitiveState::new(PrimitiveTopology::triangle_list()),
         );
 
         let vertexs = [

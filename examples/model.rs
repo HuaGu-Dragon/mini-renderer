@@ -5,6 +5,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use image::DynamicImage;
+use mini_renderer::graphics::Face;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::{Vec3, Vec4};
@@ -174,11 +175,9 @@ impl Renderer {
         let pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment { textures },
-            PrimitiveState {
-                topology: PrimitiveTopology::triangle_list(),
-                front_face: mini_renderer::graphics::FrontFace::Cw,
-                cull_mode: Some(mini_renderer::graphics::Face::Back),
-            },
+            PrimitiveState::new(PrimitiveTopology::triangle_list())
+                .with_front_face(mini_renderer::graphics::FrontFace::Cw)
+                .with_cull_mode(Face::Back),
         );
 
         let renderer = mini_renderer::renderer::Renderer::new(width, height);

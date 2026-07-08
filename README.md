@@ -72,7 +72,9 @@ let renderer = Renderer::new(800, 600);
 let mut pipeline = create_render_pipeline(
     MyVertexShader,
     MyFragmentShader,
-    PrimitiveState::default(),
+    PrimitiveState::new(PrimitiveTopology::triangle_list())
+        .with_front_face(FrontFace::Ccw)
+        .with_cull_mode(Face::Back),
 );
 
 // Render with depth and blending
@@ -100,8 +102,7 @@ src/
 │   ├── mod.rs
 │   ├── primitive.rs   # Primitive assembly
 │   └── rasterizer.rs  # Triangle rasterization
-├── math.rs            # Math utilities (AABB, barycentric coordinates)
-└── color.rs           # Color format abstraction
+└── math.rs            # Math utilities (AABB, barycentric coordinates)
 ```
 
 ### Key Types

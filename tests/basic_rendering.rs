@@ -63,11 +63,7 @@ fn test_simple_triangle_renders() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Create a simple triangle in the center of the viewport
@@ -98,11 +94,7 @@ fn test_triangle_without_depth() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
@@ -129,11 +121,7 @@ fn test_discard_fragments() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         DiscardFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
@@ -162,11 +150,7 @@ fn test_multiple_triangles() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Two triangles
@@ -202,11 +186,7 @@ fn test_back_face_culling() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: Some(mini_renderer::graphics::Face::Back),
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Triangle vertices arranged clockwise in NDC space (which becomes CCW in screen space due to Y flip)
@@ -236,11 +216,7 @@ fn test_front_face_culling() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: Some(mini_renderer::graphics::Face::Front),
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Triangle vertices arranged clockwise in NDC space (becomes CCW in screen space due to Y flip)
@@ -270,11 +246,7 @@ fn test_depth_testing_closer_wins() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // First triangle at z=0.5 (closer)
@@ -316,11 +288,7 @@ fn test_indexed_draw() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];

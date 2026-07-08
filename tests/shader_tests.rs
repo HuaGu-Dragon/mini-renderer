@@ -107,11 +107,7 @@ fn test_vertex_shader_with_scale_uniform() {
     let mut pipeline = create_render_pipeline(
         TransformVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
@@ -140,11 +136,7 @@ fn test_vertex_shader_different_scales() {
     let mut pipeline1 = create_render_pipeline(
         TransformVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
@@ -167,11 +159,7 @@ fn test_vertex_shader_different_scales() {
     let mut pipeline2 = create_render_pipeline(
         TransformVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let mut framebuffer2 = vec![0u32; 100 * 100];
@@ -199,11 +187,7 @@ fn test_varying_interpolation_single_color() {
     let mut pipeline = create_render_pipeline(
         ColorVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Triangle with red color at all vertices
@@ -249,11 +233,7 @@ fn test_varying_interpolation_gradient() {
     let mut pipeline = create_render_pipeline(
         ColorVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Triangle with gradient: red at top, green at bottom-left, blue at bottom-right
@@ -286,11 +266,7 @@ fn test_passthrough_vertex_shader() {
     let mut pipeline = create_render_pipeline(
         PassthroughVertexShader,
         ConstantColorFragmentShader { color: 0xFFFFFFFF },
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.25, -0.25, 0.0), (0.25, -0.25, 0.0), (0.0, 0.25, 0.0)];
@@ -316,11 +292,7 @@ fn test_multiple_shader_combinations() {
     let mut pipeline1 = create_render_pipeline(
         TransformVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
@@ -342,11 +314,7 @@ fn test_multiple_shader_combinations() {
     let mut pipeline2 = create_render_pipeline(
         PassthroughVertexShader,
         ConstantColorFragmentShader { color: 0xFF0000FF },
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let mut framebuffer2 = vec![0u32; 100 * 100];
@@ -370,11 +338,7 @@ fn test_zero_scale_transform() {
     let mut pipeline = create_render_pipeline(
         TransformVertexShader,
         ColorFragmentShader,
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
@@ -400,11 +364,7 @@ fn test_very_small_triangle() {
     let mut pipeline = create_render_pipeline(
         PassthroughVertexShader,
         ConstantColorFragmentShader { color: 0xFF0000FF },
-        PrimitiveState {
-            topology: PrimitiveTopology::triangle_list(),
-            front_face: mini_renderer::graphics::FrontFace::Ccw,
-            cull_mode: None,
-        },
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
     );
 
     // Very small triangle
