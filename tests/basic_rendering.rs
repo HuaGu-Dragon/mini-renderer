@@ -216,7 +216,8 @@ fn test_front_face_culling() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
         TestFragmentShader,
-        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+        PrimitiveState::new(PrimitiveTopology::triangle_list())
+            .with_cull_mode(mini_renderer::graphics::Face::Back),
     );
 
     // Triangle vertices arranged clockwise in NDC space (becomes CCW in screen space due to Y flip)
