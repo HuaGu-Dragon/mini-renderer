@@ -460,7 +460,9 @@ impl<Var> Rasterizer<Var> for PointRasterizer {
             let x = ((point.x + 0.5).floor_custom() as usize).clamp(0, max_screen_x);
             let y = ((point.y + 0.5).floor_custom() as usize).clamp(0, max_screen_y);
 
-            let [tile_x, tile_y, tile_max_x, tile_max_y] = tile_bounds;
+            let [tile_x, tile_y, tile_width, tile_height] = tile_bounds;
+            let tile_max_x = tile_x + tile_width;
+            let tile_max_y = tile_y + tile_height;
             if x < tile_x || x >= tile_max_x || y < tile_y || y >= tile_max_y {
                 None
             } else {
