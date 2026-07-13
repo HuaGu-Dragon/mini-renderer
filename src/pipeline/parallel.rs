@@ -53,6 +53,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
+        if width == 0 || tile_height == 0 {
+            return;
+        }
+
         let chunk_size = width * tile_height;
 
         framebuffer
@@ -112,6 +116,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
+        if width == 0 || tile_height == 0 {
+            return;
+        }
+
         let chunk_size = width * tile_height;
 
         framebuffer
@@ -172,6 +180,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
+        if width == 0 || tile_height == 0 {
+            return;
+        }
+
         let chunk_size = width * tile_height;
 
         framebuffer
@@ -237,6 +249,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
+        if width == 0 || tile_height == 0 {
+            return;
+        }
+
         let chunk_size = width * tile_height;
 
         framebuffer
