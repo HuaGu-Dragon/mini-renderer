@@ -45,6 +45,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
@@ -55,9 +58,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
-        if width == 0 || tile_height == 0 {
-            return;
-        }
 
         let chunk_size = width * tile_height;
 
@@ -107,6 +107,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
     {
         assert_eq!(framebuffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
@@ -120,9 +123,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
-        if width == 0 || tile_height == 0 {
-            return;
-        }
 
         let chunk_size = width * tile_height;
 
@@ -174,6 +174,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
     {
         assert_eq!(framebuffer.len(), width * height);
         assert_eq!(depth_buffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
@@ -187,9 +190,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
-        if width == 0 || tile_height == 0 {
-            return;
-        }
 
         let chunk_size = width * tile_height;
 
@@ -246,6 +246,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
     {
         assert_eq!(framebuffer.len(), width * height);
         assert_eq!(depth_buffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
@@ -259,9 +262,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         let num_threads = rayon::current_num_threads().max(1);
         let tile_height = height.div_ceil(num_threads);
-        if width == 0 || tile_height == 0 {
-            return;
-        }
 
         let chunk_size = width * tile_height;
 

@@ -44,6 +44,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
     {
         assert_eq!(framebuffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
@@ -86,6 +89,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
     {
         assert_eq!(framebuffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
@@ -130,6 +136,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
     {
         assert_eq!(framebuffer.len(), width * height);
         assert_eq!(depth_buffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
@@ -178,6 +187,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
     {
         assert_eq!(framebuffer.len(), width * height);
         assert_eq!(depth_buffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
 
         self.index_cache.clear();
         self.index_cache.extend(indexed);
