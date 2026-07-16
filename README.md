@@ -113,6 +113,16 @@ renderer
 
 `PrimitiveState::default()` uses triangle-list topology, counter-clockwise front faces, and no culling. Use `PrimitiveState::new(PrimitiveTopology::...)` to select another topology.
 
+## Toolchain and feature sets
+
+mini-renderer requires Rust 1.94 or newer. The default feature set enables the standard library, `glam`, the `Varying` derive macro, and Rayon-based parallel rendering.
+
+For a serial `no_std` build with `libm`, run:
+
+```console
+cargo check --no-default-features --features libm
+```
+
 ## Architecture
 
 ### Module Structure
