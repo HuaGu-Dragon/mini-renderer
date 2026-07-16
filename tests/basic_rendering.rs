@@ -403,3 +403,100 @@ fn test_sparse_indexed_draw_uses_source_vertex_indices() {
 
     assert!(framebuffer.iter().any(|&pixel| pixel != 0));
 }
+
+#[test]
+#[should_panic(expected = "renderer dimensions overflow")]
+fn test_draw_rejects_dimension_overflow() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::default(),
+    );
+    let mut framebuffer = Vec::<u32>::new();
+
+    Renderer::new(usize::MAX, 2)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw(&[], &mut framebuffer, &());
+}
+
+#[test]
+#[should_panic(expected = "vertex index 3 out of bounds for 3 vertices")]
+fn test_draw_rejects_out_of_bounds_index() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::default(),
+    );
+    let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
+    let mut framebuffer = vec![0_u32; 16];
+
+    Renderer::new(4, 4)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw_indexed(&vertices, [0, 1, 3].into_iter(), &mut framebuffer, &());
+}
+
+#[test]
+fn test_invalid_indices_are_rejected_before_shading_in_all_modes() {
+    for mode in 0..4 {
+        let invocation_count = Arc::new(AtomicUsize::new(0));
+        let mut pipeline = create_render_pipeline(
+            CountingVertexShader(Arc::clone(&invocation_count)),
+            TestFragmentShader,
+            PrimitiveState::default(),
+        );
+        let renderer = Renderer::new(4, 4);
+        let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
+        let indices = [0, 1, 3];
+        let mut framebuffer = vec![0_u32; 16];
+        let mut depth_buffer = vec![1.0; 16];
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match mode {
+            0 => renderer
+                .begin_render_pass()
+                .set_pipeline(&mut pipeline)
+                .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &()),
+            1 => renderer
+                .begin_render_pass()
+                .set_pipeline(&mut pipeline)
+                .with_blend(|source: u32, _destination: u32| source)
+                .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &()),
+            2 => renderer
+                .begin_render_pass()
+                .set_pipeline(&mut pipeline)
+                .with_depth(&mut depth_buffer)
+                .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &()),
+            _ => renderer
+                .begin_render_pass()
+                .set_pipeline(&mut pipeline)
+                .with_depth(&mut depth_buffer)
+                .with_blend(|source: u32, _destination: u32| source)
+                .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &()),
+        }));
+
+        assert!(
+            result.is_err(),
+            "draw mode {mode} accepted an invalid index"
+        );
+        assert_eq!(invocation_count.load(Ordering::Relaxed), 0);
+        assert!(framebuffer.iter().all(|&pixel| pixel == 0));
+        assert!(depth_buffer.iter().all(|&depth| depth == 1.0));
+    }
+}
+
+#[test]
+fn test_zero_sized_target_does_not_consume_indices() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::default(),
+    );
+    let mut framebuffer = Vec::<u32>::new();
+    let indices = core::iter::once_with(|| panic!("zero-sized draw consumed its indices"));
+
+    Renderer::new(0, usize::MAX)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw_indexed(&[], indices, &mut framebuffer, &());
+}
