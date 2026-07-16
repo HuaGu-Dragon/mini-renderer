@@ -326,3 +326,39 @@ fn test_indexed_draw() {
     let non_zero_pixels = framebuffer.iter().filter(|&&p| p != 0).count();
     assert!(non_zero_pixels > 0, "Indexed draw should render pixels");
 }
+
+#[test]
+fn test_triangle_crossing_near_clip_plane_renders() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, -2.0)];
+    let mut framebuffer = vec![0_u32; 100 * 100];
+
+    Renderer::new(100, 100)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw(&vertices, &mut framebuffer, &());
+
+    assert!(framebuffer.iter().any(|&pixel| pixel != 0));
+}
+
+#[test]
+fn test_triangle_fully_outside_clip_volume_is_discarded() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [(-3.0, -0.5, 0.0), (-2.0, -0.5, 0.0), (-2.5, 0.5, 0.0)];
+    let mut framebuffer = vec![0_u32; 100 * 100];
+
+    Renderer::new(100, 100)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw(&vertices, &mut framebuffer, &());
+
+    assert!(framebuffer.iter().all(|&pixel| pixel == 0));
+}
