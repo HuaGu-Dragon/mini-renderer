@@ -684,4 +684,20 @@ mod tests {
         let v2 = Vec4::new(0.0, 0.5, 0.0, 1.0);
         assert!(!TriangleRasterizer::should_cull_triangle(v0, v1, v2));
     }
+
+    #[test]
+    fn test_point_rasterizes_in_offset_tile() {
+        let rasterizer = <PointRasterizer as Rasterizer<()>>::new(FrontFace::Ccw, None);
+        let vertex = VertexOutput {
+            position: Vec4::new(0.0, 0.0, 0.0, 1.0),
+            varying: (),
+        };
+
+        let fragments: Vec<_> = rasterizer
+            .rasterize_tile(core::iter::once(vertex), 100, 100, [0, 50, 100, 50])
+            .collect();
+
+        assert_eq!(fragments.len(), 1);
+        assert_eq!((fragments[0].x, fragments[0].y), (50, 50));
+    }
 }

@@ -7,8 +7,9 @@ A lightweight software rasterizer written in Rust with a focus on type-safe rend
 ### Core Rendering
 - **Software Rasterization** - Triangle rasterization with per-pixel processing
 - **Depth Testing** - Z-buffer for correct depth ordering
-- **Color Blending** - Flexible alpha blending with `From` trait
-- **Texture Sampling** - 2D texture mapping with bilinear filtering
+- **Color Blending** - Custom blending through `FragmentShader::blend`
+- **Texture Sampling Examples** - 2D texture mapping with nearest-neighbor sampling
+- **Perspective-Correct Interpolation** - Correct varying interpolation in screen space
 - **Multi-threaded** - Parallel rasterization using Rayon
 
 ### Pipeline Architecture
@@ -29,62 +30,88 @@ A lightweight software rasterizer written in Rust with a focus on type-safe rend
 ### Basic Triangle Example
 
 ```rust
-use mini_renderer::renderer::*;
-use mini_renderer::pipeline::shader::*;
+use mini_renderer::{
+    graphics::{Face, primitive::PrimitiveState},
+    math::Vec4,
+    pipeline::shader::{FragmentShader, VertexOutput, VertexShader},
+    renderer::{Renderer, create_render_pipeline},
+};
 
-// Define your vertex and fragment shaders
 struct MyVertex {
     position: (f32, f32),
     color: (f32, f32, f32),
 }
 
+#[derive(Clone, Copy, mini_renderer::Varying)]
 struct MyVarying {
     color: (f32, f32, f32),
 }
 
 struct MyVertexShader;
+
 impl VertexShader for MyVertexShader {
     type Vertex = MyVertex;
+    type Varying = MyVarying;
     type Uniform = ();
 
-    fn vs_main(&self, _idx: usize, vertex: &MyVertex, _uniform: &()) -> VertexOutput<MyVarying> {
+    fn vs_main(
+        &self,
+        _index: usize,
+        vertex: &Self::Vertex,
+        _uniform: &Self::Uniform,
+    ) -> VertexOutput<Self::Varying> {
         VertexOutput {
-            position: vertex.position,
+            position: Vec4::new(vertex.position.0, vertex.position.1, 0.0, 1.0),
             varying: MyVarying { color: vertex.color },
         }
     }
 }
 
 struct MyFragmentShader;
+
 impl FragmentShader for MyFragmentShader {
     type Varying = MyVarying;
+    type Output = u32;
     type Uniform = ();
-    type Output = u32;  // RGBA8888 color
 
-    fn fs_main(&self, varying: &MyVarying, _uniform: &()) -> Option<Self::Output> {
+    fn fs_main(
+        &self,
+        varying: &Self::Varying,
+        _uniform: &Self::Uniform,
+    ) -> Option<Self::Output> {
         let (r, g, b) = varying.color;
-        Some(((r as u32) << 16) | ((g as u32) << 8) | (b as u32))
+        let r = (r.clamp(0.0, 1.0) * 255.0) as u32;
+        let g = (g.clamp(0.0, 1.0) * 255.0) as u32;
+        let b = (b.clamp(0.0, 1.0) * 255.0) as u32;
+        Some((r << 24) | (g << 16) | (b << 8) | 0xff)
     }
 }
 
-// Create renderer and pipeline
+let vertices = [
+    MyVertex { position: (-0.5, -0.5), color: (1.0, 0.0, 0.0) },
+    MyVertex { position: (0.5, -0.5), color: (0.0, 1.0, 0.0) },
+    MyVertex { position: (0.0, 0.5), color: (0.0, 0.0, 1.0) },
+];
+let indices = [0usize, 1, 2];
+let mut framebuffer = vec![0u32; 800 * 600];
+let mut depth_buffer = vec![1.0; 800 * 600];
+
 let renderer = Renderer::new(800, 600);
 let mut pipeline = create_render_pipeline(
     MyVertexShader,
     MyFragmentShader,
-    PrimitiveState::new(PrimitiveTopology::triangle_list())
-        .with_front_face(FrontFace::Ccw)
-        .with_cull_mode(Face::Back),
+    PrimitiveState::default().with_cull_mode(Face::Back),
 );
 
-// Render with depth and blending
 renderer
     .begin_render_pass()
     .set_pipeline(&mut pipeline)
     .with_depth(&mut depth_buffer)
     .with_blend()
-    .draw_indexed(&vertices, indices, &mut framebuffer, &uniform);
+    .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &());
 ```
+
+`PrimitiveState::default()` uses triangle-list topology, counter-clockwise front faces, and no culling. Use `PrimitiveState::new(PrimitiveTopology::...)` to select another topology.
 
 ## Architecture
 
@@ -100,9 +127,10 @@ src/
 │   └── varying.rs     # Varying interpolation trait
 ├── graphics/
 │   ├── mod.rs
-│   ├── primitive.rs   # Primitive assembly
-│   └── rasterizer.rs  # Triangle rasterization
-└── math.rs            # Math utilities (AABB, barycentric coordinates)
+│   ├── primitive.rs   # Primitive pipeline state
+│   ├── rasterizer.rs  # Point, line, and triangle rasterization
+│   └── topology.rs    # Primitive assembly and topology markers
+└── math.rs            # Vector types and math utilities
 ```
 
 ### Key Types
@@ -111,12 +139,14 @@ src/
 Main rendering interface:
 ```rust
 pub struct Renderer {
-    pub width: usize,
-    pub height: usize,
+    width: usize,
+    height: usize,
 }
 
 impl Renderer {
-    pub fn begin_render_pass(&self) -> RenderPass;
+    pub fn begin_render_pass(&self) -> RenderPass<'_>;
+    pub fn width(&self) -> usize;
+    pub fn height(&self) -> usize;
 }
 ```
 
@@ -150,25 +180,33 @@ Low-level rendering pipeline:
 ```rust
 pub trait VertexShader {
     type Vertex;
-    type Uniform: ?Sized;
+    type Varying;
+    type Uniform;
 
-    fn vs_main(&self, index: usize, vertex: &Self::Vertex, uniform: &Self::Uniform) 
-        -> VertexOutput<Self::Varying>;
+    fn vs_main(
+        &self,
+        index: usize,
+        vertex: &Self::Vertex,
+        uniform: &Self::Uniform,
+    ) -> VertexOutput<Self::Varying>;
 }
 ```
 
 **FragmentShader**
 ```rust
 pub trait FragmentShader {
-    type Varying: Varying;
-    type Uniform: ?Sized;
-    type Output;
+    type Varying;
+    type Output: Copy;
+    type Uniform;
 
-    fn fs_main(&self, varying: &Self::Varying, uniform: &Self::Uniform) 
-        -> Option<Self::Output>;
+    fn fs_main(
+        &self,
+        varying: &Self::Varying,
+        uniform: &Self::Uniform,
+    ) -> Option<Self::Output>;
 
-    fn blend(&self, src: Self::Output, dst: Self::Output) -> Self::Output {
-        src  // Default: source over
+    fn blend(output: Self::Output, background: Self::Output) -> Self::Output {
+        output
     }
 }
 ```
@@ -176,7 +214,7 @@ pub trait FragmentShader {
 #### `Varying`
 Custom interpolation for vertex attributes:
 ```rust
-pub trait Varying {
+pub trait Varying: Sized + Copy {
     fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self;
 }
 ```
@@ -224,9 +262,10 @@ The rasterizer uses Rayon to parallelize per-tile processing. Work is distribute
 The `with_depth()` and `with_blend()` methods use Rust's type system with zero runtime cost (compile-time specialization via monomorphization).
 
 ### Memory Layout
-- Vertices are stored in interleaved format for cache efficiency
-- Depth buffer uses `f32` for maximum precision
-- Framebuffer format is generic (`T: Send`)
+- Vertex layout is defined by the user's `VertexShader::Vertex` type
+- Pipeline-owned vertex and index caches are reused between draw calls
+- Depth buffers use `f32`
+- Framebuffer element types are generic
 
 ## Dependencies
 
@@ -243,10 +282,10 @@ The `with_depth()` and `with_blend()` methods use Rust's type system with zero r
 - Compute shaders
 
 ### Design Constraints
-- Single-threaded shader execution (per-vertex/fragment)
-- Limited Uniform size (data must fit in memory)
-- No support for hardware textures
-- 2D texture sampling only (no cubemaps)
+- Shaders execute on the CPU; the default `rayon` feature parallelizes their work
+- Vertex and fragment shaders currently share one uniform type per draw
+- No GPU acceleration or hardware texture sampling
+- Texture sampling is implemented by examples rather than a core texture abstraction
 
 ## Contributing
 
@@ -259,7 +298,7 @@ The codebase is organized for clarity and extensibility:
 ## Future Improvements
 
 - [ ] SIMD optimizations for rasterization
-- [ ] Advanced interpolation methods (perspective-correct)
+- [ ] Homogeneous clipping before perspective division
 - [ ] Texture compression support
 - [ ] Material system with multiple render passes
 

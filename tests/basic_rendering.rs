@@ -59,6 +59,22 @@ fn test_renderer_creation() {
 }
 
 #[test]
+fn test_zero_sized_render_target_is_a_noop() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::default(),
+    );
+    let renderer = Renderer::new(0, 0);
+    let mut framebuffer = Vec::<u32>::new();
+
+    renderer
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw(&[], &mut framebuffer, &());
+}
+
+#[test]
 fn test_simple_triangle_renders() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
