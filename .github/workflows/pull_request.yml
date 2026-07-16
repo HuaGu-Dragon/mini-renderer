@@ -1,0 +1,24 @@
+on: [pull_request]
+name: benchmark pull requests
+jobs:
+  runBenchmark:
+    name: run benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # tag=v7.0.0
+
+      - name: Compare (Rayon-enabled)
+        uses: boa-dev/criterion-compare-action@v3
+        with:
+          benchName: "rasterizer"
+          branchName: ${{ github.base_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare (Serial pipeline)
+        uses: boa-dev/criterion-compare-action@v3
+        with:
+          benchName: "rasterizer"
+          branchName: ${{ github.base_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          defaultFeatures: false
+          features: "std, glam"
