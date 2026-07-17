@@ -308,7 +308,6 @@ The codebase is organized for clarity and extensibility:
 ## Future Improvements
 
 - [ ] SIMD optimizations for rasterization
-- [ ] Homogeneous clipping before perspective division
 - [ ] Texture compression support
 - [ ] Material system with multiple render passes
 

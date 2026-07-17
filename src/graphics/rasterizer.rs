@@ -64,6 +64,234 @@ fn clip_to_screen(clip_pos: Vec4, width: usize, height: usize) -> Vec4 {
     Vec4::new(screen_x, screen_y, screen_z, clip_pos.w)
 }
 
+#[derive(Clone, Copy)]
+enum ClipPlane {
+    Left,
+    Right,
+    Bottom,
+    Top,
+    Near,
+    Far,
+}
+
+impl ClipPlane {
+    const ALL: [Self; 6] = [
+        Self::Left,
+        Self::Right,
+        Self::Bottom,
+        Self::Top,
+        Self::Near,
+        Self::Far,
+    ];
+
+    fn distance(self, position: Vec4) -> f32 {
+        match self {
+            Self::Left => position.x + position.w,
+            Self::Right => position.w - position.x,
+            Self::Bottom => position.y + position.w,
+            Self::Top => position.w - position.y,
+            Self::Near => position.z + position.w,
+            Self::Far => position.w - position.z,
+        }
+    }
+}
+
+fn inside_clip_volume(position: Vec4) -> bool {
+    position.w > 0.0
+        && ClipPlane::ALL
+            .into_iter()
+            .all(|plane| plane.distance(position) >= 0.0)
+}
+
+fn interpolate_vertex<Var: Varying>(
+    start: VertexOutput<Var>,
+    end: VertexOutput<Var>,
+    t: f32,
+) -> VertexOutput<Var> {
+    let start_position = start.position;
+    let end_position = end.position;
+
+    VertexOutput {
+        position: Vec4::new(
+            start_position.x + (end_position.x - start_position.x) * t,
+            start_position.y + (end_position.y - start_position.y) * t,
+            start_position.z + (end_position.z - start_position.z) * t,
+            start_position.w + (end_position.w - start_position.w) * t,
+        ),
+        varying: Varying::interpolate(start.varying, end.varying, end.varying, 1.0 - t, t, 0.0),
+    }
+}
+
+fn intersection<Var: Varying>(
+    start: VertexOutput<Var>,
+    end: VertexOutput<Var>,
+    start_distance: f32,
+    end_distance: f32,
+) -> VertexOutput<Var> {
+    let t = start_distance / (start_distance - end_distance);
+    interpolate_vertex(start, end, t)
+}
+
+fn clip_line<Var: Varying>(
+    mut start: VertexOutput<Var>,
+    mut end: VertexOutput<Var>,
+) -> Option<[VertexOutput<Var>; 2]> {
+    for plane in ClipPlane::ALL {
+        let start_distance = plane.distance(start.position);
+        let end_distance = plane.distance(end.position);
+        let start_inside = start_distance >= 0.0;
+        let end_inside = end_distance >= 0.0;
+
+        match (start_inside, end_inside) {
+            (false, false) => return None,
+            (false, true) => {
+                start = intersection(start, end, start_distance, end_distance);
+            }
+            (true, false) => {
+                end = intersection(start, end, start_distance, end_distance);
+            }
+            (true, true) => {}
+        }
+    }
+
+    (start.position.w > 0.0 && end.position.w > 0.0).then_some([start, end])
+}
+
+const MAX_CLIPPED_VERTICES: usize = 9;
+
+struct ClippedTriangles<Var: Varying> {
+    vertices: [Option<VertexOutput<Var>>; MAX_CLIPPED_VERTICES],
+    vertex_count: usize,
+    next_index: usize,
+}
+
+impl<Var: Varying> ClippedTriangles<Var> {
+    fn empty() -> Self {
+        Self {
+            vertices: [None; MAX_CLIPPED_VERTICES],
+            vertex_count: 0,
+            next_index: 1,
+        }
+    }
+
+    fn new(
+        vertices: [Option<VertexOutput<Var>>; MAX_CLIPPED_VERTICES],
+        vertex_count: usize,
+    ) -> Self {
+        Self {
+            vertices,
+            vertex_count,
+            next_index: 1,
+        }
+    }
+}
+
+impl<Var: Varying> Iterator for ClippedTriangles<Var> {
+    type Item = [VertexOutput<Var>; 3];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.vertex_count < 3 || self.next_index + 1 >= self.vertex_count {
+            return None;
+        }
+
+        let triangle = [
+            self.vertices[0].expect("clipped polygon vertex"),
+            self.vertices[self.next_index].expect("clipped polygon vertex"),
+            self.vertices[self.next_index + 1].expect("clipped polygon vertex"),
+        ];
+        self.next_index += 1;
+        Some(triangle)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self
+            .vertex_count
+            .saturating_sub(self.next_index.saturating_add(1));
+        (remaining, Some(remaining))
+    }
+}
+
+impl<Var: Varying> ExactSizeIterator for ClippedTriangles<Var> {}
+
+fn push_clipped_vertex<Var: Varying>(
+    vertices: &mut [Option<VertexOutput<Var>>; MAX_CLIPPED_VERTICES],
+    vertex_count: &mut usize,
+    vertex: VertexOutput<Var>,
+) {
+    debug_assert!(*vertex_count < MAX_CLIPPED_VERTICES);
+    vertices[*vertex_count] = Some(vertex);
+    *vertex_count += 1;
+}
+
+fn clip_triangle<Var: Varying>(triangle: [VertexOutput<Var>; 3]) -> ClippedTriangles<Var> {
+    if TriangleRasterizer::should_cull_triangle(
+        triangle[0].position,
+        triangle[1].position,
+        triangle[2].position,
+    ) {
+        return ClippedTriangles::empty();
+    }
+
+    let mut input = [None; MAX_CLIPPED_VERTICES];
+    input[0] = Some(triangle[0]);
+    input[1] = Some(triangle[1]);
+    input[2] = Some(triangle[2]);
+    let mut input_count = triangle.len();
+    let mut output = [None; MAX_CLIPPED_VERTICES];
+
+    for plane in ClipPlane::ALL {
+        if input_count == 0 {
+            break;
+        }
+
+        let mut output_count = 0;
+        let mut previous = input[input_count - 1].expect("non-empty polygon");
+        let mut previous_distance = plane.distance(previous.position);
+        let mut previous_inside = previous_distance >= 0.0;
+
+        for current in input[..input_count].iter().copied().flatten() {
+            let current_distance = plane.distance(current.position);
+            let current_inside = current_distance >= 0.0;
+
+            match (previous_inside, current_inside) {
+                (true, true) => push_clipped_vertex(&mut output, &mut output_count, current),
+                (true, false) => push_clipped_vertex(
+                    &mut output,
+                    &mut output_count,
+                    intersection(previous, current, previous_distance, current_distance),
+                ),
+                (false, true) => {
+                    push_clipped_vertex(
+                        &mut output,
+                        &mut output_count,
+                        intersection(previous, current, previous_distance, current_distance),
+                    );
+                    push_clipped_vertex(&mut output, &mut output_count, current);
+                }
+                (false, false) => {}
+            }
+
+            previous = current;
+            previous_distance = current_distance;
+            previous_inside = current_inside;
+        }
+
+        core::mem::swap(&mut input, &mut output);
+        input_count = output_count;
+    }
+
+    if input_count < 3
+        || input[..input_count]
+            .iter()
+            .flatten()
+            .any(|vertex| vertex.position.w <= 0.0)
+    {
+        return ClippedTriangles::empty();
+    }
+
+    ClippedTriangles::new(input, input_count)
+}
+
 struct LineRasterization<Var> {
     x: i32,
     y: i32,
@@ -452,6 +680,10 @@ impl<Var> Rasterizer<Var> for PointRasterizer {
         Var: Varying,
     {
         primitive.filter_map(move |v| {
+            if !inside_clip_volume(v.position) {
+                return None;
+            }
+
             let point = clip_to_screen(v.position, width, height);
 
             let max_screen_x = width.saturating_sub(1).min(i32::MAX as usize);
@@ -495,6 +727,7 @@ impl<Var> Rasterizer<Var> for LineRasterizer {
         Var: Varying,
     {
         primitive
+            .filter_map(move |[v0, v1]| clip_line(v0, v1))
             .flat_map(move |[v0, v1]| LineRasterization::new(v0, v1, tile_bounds, width, height))
     }
 }
@@ -523,31 +756,23 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     where
         Var: Varying,
     {
-        primitive
-            .filter_map(move |[vertex_output, vertex_output1, vertex_output2]| {
-                if Self::should_cull_triangle(
-                    vertex_output.position,
-                    vertex_output1.position,
-                    vertex_output2.position,
-                ) {
-                    None
-                } else {
-                    let v0 = clip_to_screen(vertex_output.position, width, height);
-                    let v1 = clip_to_screen(vertex_output1.position, width, height);
-                    let v2 = clip_to_screen(vertex_output2.position, width, height);
+        primitive.flat_map(clip_triangle).flat_map(
+            move |[vertex_output, vertex_output1, vertex_output2]| {
+                let v0 = clip_to_screen(vertex_output.position, width, height);
+                let v1 = clip_to_screen(vertex_output1.position, width, height);
+                let v2 = clip_to_screen(vertex_output2.position, width, height);
 
-                    Some(self.rasterize_triangle(
-                        [v0, v1, v2],
-                        [
-                            vertex_output.varying,
-                            vertex_output1.varying,
-                            vertex_output2.varying,
-                        ],
-                        tile_bounds,
-                    ))
-                }
-            })
-            .flatten()
+                self.rasterize_triangle(
+                    [v0, v1, v2],
+                    [
+                        vertex_output.varying,
+                        vertex_output1.varying,
+                        vertex_output2.varying,
+                    ],
+                    tile_bounds,
+                )
+            },
+        )
     }
 }
 
@@ -559,6 +784,136 @@ mod tests {
 
     fn approx_eq(a: f32, b: f32) -> bool {
         (a - b).abs() < EPSILON
+    }
+
+    fn test_vertex(position: Vec4, varying: f32) -> VertexOutput<f32> {
+        VertexOutput { position, varying }
+    }
+
+    #[test]
+    fn test_clip_volume_rejects_outside_point() {
+        assert!(!inside_clip_volume(Vec4::new(2.0, 0.0, 0.0, 1.0)));
+        assert!(!inside_clip_volume(Vec4::new(0.0, 0.0, 0.0, 0.0)));
+        assert!(inside_clip_volume(Vec4::new(0.0, 0.0, 0.0, 1.0)));
+    }
+
+    #[test]
+    fn test_point_rasterizer_discards_outside_point() {
+        let rasterizer = PointRasterizer;
+        let vertex = VertexOutput {
+            position: Vec4::new(2.0, 0.0, 0.0, 1.0),
+            varying: (),
+        };
+
+        let fragments: Vec<_> = rasterizer.rasterize([vertex].into_iter(), 16, 16).collect();
+
+        assert!(fragments.is_empty());
+    }
+
+    #[test]
+    fn test_clip_line_interpolates_boundary_vertex() {
+        let [start, end] = clip_line(
+            test_vertex(Vec4::new(-2.0, 0.0, 0.0, 1.0), 0.0),
+            test_vertex(Vec4::new(0.0, 0.0, 0.0, 1.0), 1.0),
+        )
+        .expect("line crosses the left clip plane");
+
+        assert!(approx_eq(start.position.x, -1.0));
+        assert!(approx_eq(start.varying, 0.5));
+        assert!(approx_eq(end.position.x, 0.0));
+        assert!(approx_eq(end.varying, 1.0));
+    }
+
+    #[test]
+    fn test_clip_line_rejects_fully_outside_segment() {
+        let clipped = clip_line(
+            test_vertex(Vec4::new(-3.0, 0.0, 0.0, 1.0), 0.0),
+            test_vertex(Vec4::new(-2.0, 0.0, 0.0, 1.0), 1.0),
+        );
+
+        assert!(clipped.is_none());
+    }
+
+    #[test]
+    fn test_clip_triangle_crossing_near_plane() {
+        let clipped: Vec<_> = clip_triangle([
+            test_vertex(Vec4::new(0.0, 0.5, -2.0, 1.0), 0.0),
+            test_vertex(Vec4::new(-0.5, -0.5, 0.0, 1.0), 1.0),
+            test_vertex(Vec4::new(0.5, -0.5, 0.0, 1.0), 2.0),
+        ])
+        .collect();
+
+        assert_eq!(clipped.len(), 2);
+        assert!(
+            clipped
+                .iter()
+                .flatten()
+                .all(|vertex| inside_clip_volume(vertex.position))
+        );
+        assert!(clipped.iter().flatten().any(|vertex| {
+            approx_eq(vertex.position.z, -vertex.position.w)
+                && vertex.varying > 0.0
+                && vertex.varying < 2.0
+        }));
+    }
+
+    #[test]
+    fn test_clip_triangle_against_each_clip_plane() {
+        let outside_positions = [
+            Vec4::new(-2.0, 0.0, 0.0, 1.0),
+            Vec4::new(2.0, 0.0, 0.0, 1.0),
+            Vec4::new(0.0, -2.0, 0.0, 1.0),
+            Vec4::new(0.0, 2.0, 0.0, 1.0),
+            Vec4::new(0.0, 0.0, -2.0, 1.0),
+            Vec4::new(0.0, 0.0, 2.0, 1.0),
+        ];
+
+        for outside in outside_positions {
+            let clipped: Vec<_> = clip_triangle([
+                test_vertex(outside, 0.0),
+                test_vertex(Vec4::new(-0.5, -0.5, 0.0, 1.0), 1.0),
+                test_vertex(Vec4::new(0.5, 0.5, 0.0, 1.0), 2.0),
+            ])
+            .collect();
+
+            assert!(!clipped.is_empty());
+            assert!(
+                clipped
+                    .iter()
+                    .flatten()
+                    .all(|vertex| inside_clip_volume(vertex.position))
+            );
+        }
+    }
+
+    #[test]
+    fn test_clip_triangle_crossing_camera_plane_has_positive_w() {
+        let clipped: Vec<_> = clip_triangle([
+            test_vertex(Vec4::new(0.0, 0.0, 0.0, -1.0), 0.0),
+            test_vertex(Vec4::new(-0.5, -0.5, 0.0, 1.0), 1.0),
+            test_vertex(Vec4::new(0.5, -0.5, 0.0, 1.0), 2.0),
+        ])
+        .collect();
+
+        assert!(!clipped.is_empty());
+        assert!(
+            clipped
+                .iter()
+                .flatten()
+                .all(|vertex| vertex.position.w > 0.0)
+        );
+    }
+
+    #[test]
+    fn test_clip_triangle_rejects_fully_outside_triangle() {
+        let clipped: Vec<_> = clip_triangle([
+            test_vertex(Vec4::new(-3.0, 0.0, 0.0, 1.0), 0.0),
+            test_vertex(Vec4::new(-2.5, 0.5, 0.0, 1.0), 1.0),
+            test_vertex(Vec4::new(-2.5, -0.5, 0.0, 1.0), 2.0),
+        ])
+        .collect();
+
+        assert!(clipped.is_empty());
     }
 
     #[test]
