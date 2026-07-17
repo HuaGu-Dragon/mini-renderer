@@ -326,3 +326,36 @@ fn test_indexed_draw() {
     let non_zero_pixels = framebuffer.iter().filter(|&&p| p != 0).count();
     assert!(non_zero_pixels > 0, "Indexed draw should render pixels");
 }
+
+#[test]
+#[should_panic(expected = "renderer dimensions overflow")]
+fn test_draw_rejects_dimension_overflow() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::default(),
+    );
+    let mut framebuffer = Vec::<u32>::new();
+
+    Renderer::new(usize::MAX, 2)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw(&[], &mut framebuffer, &());
+}
+
+#[test]
+#[should_panic(expected = "vertex index 3 out of bounds for 3 vertices")]
+fn test_draw_rejects_out_of_bounds_index() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::default(),
+    );
+    let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, 0.0)];
+    let mut framebuffer = vec![0_u32; 16];
+
+    Renderer::new(4, 4)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw_indexed(&vertices, [0, 1, 3].into_iter(), &mut framebuffer, &());
+}

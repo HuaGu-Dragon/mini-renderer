@@ -41,13 +41,13 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
+
+        self.cache_indices(indexed, vertices.len());
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
@@ -106,13 +106,13 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         O: Send + Copy,
         V::Vertex: Send + Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
+        self.cache_indices(indexed, vertices.len());
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
@@ -172,14 +172,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        assert_eq!(depth_buffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        assert_eq!(depth_buffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
+        self.cache_indices(indexed, vertices.len());
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
@@ -244,14 +244,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         O: Send + Copy,
         V::Vertex: Send + Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        assert_eq!(depth_buffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        assert_eq!(depth_buffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
+        self.cache_indices(indexed, vertices.len());
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
