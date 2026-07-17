@@ -21,4 +21,12 @@ pub struct Pipeline<T: Primitive<V::Varying>, V: VertexShader, F> {
     fragment_shader: F,
     vertex_cache: Vec<VertexOutput<V::Varying>>,
     index_cache: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    tile_counts: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    tile_offsets: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    tile_indices: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    primitive_tile_ranges: Vec<Option<[usize; 4]>>,
 }

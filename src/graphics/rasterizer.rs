@@ -16,7 +16,9 @@ pub trait Rasterizer<Var> {
     // type Primitive<'a, V>
     // where
     //     V: 'a;
-    type Primitive<V>;
+    type Primitive<V>: Copy
+    where
+        V: Copy;
 
     fn new(front_face: FrontFace, cull_mode: Option<Face>) -> Self;
 
@@ -41,6 +43,18 @@ pub trait Rasterizer<Var> {
     ) -> impl Iterator<Item = Fragment<Var>>
     where
         Var: Varying;
+
+    fn primitive_bounds(
+        &self,
+        _primitive: &Self::Primitive<Var>,
+        width: usize,
+        height: usize,
+    ) -> Option<[usize; 4]>
+    where
+        Var: Varying,
+    {
+        (width > 0 && height > 0).then_some([0, 0, width, height])
+    }
 }
 
 pub struct PointRasterizer;
@@ -435,7 +449,10 @@ impl TriangleRasterizer {
 }
 
 impl<Var> Rasterizer<Var> for PointRasterizer {
-    type Primitive<V> = VertexOutput<Var>;
+    type Primitive<V>
+        = VertexOutput<V>
+    where
+        V: Copy;
 
     fn new(_front_face: FrontFace, _cull_mode: Option<Face>) -> Self {
         Self
@@ -475,10 +492,35 @@ impl<Var> Rasterizer<Var> for PointRasterizer {
             }
         })
     }
+
+    fn primitive_bounds(
+        &self,
+        primitive: &Self::Primitive<Var>,
+        width: usize,
+        height: usize,
+    ) -> Option<[usize; 4]>
+    where
+        Var: Varying,
+    {
+        if width == 0 || height == 0 {
+            return None;
+        }
+
+        let point = clip_to_screen(primitive.position, width, height);
+        let max_screen_x = width.saturating_sub(1).min(i32::MAX as usize);
+        let max_screen_y = height.saturating_sub(1).min(i32::MAX as usize);
+        let x = ((point.x + 0.5).floor_custom() as usize).clamp(0, max_screen_x);
+        let y = ((point.y + 0.5).floor_custom() as usize).clamp(0, max_screen_y);
+
+        Some([x, y, x + 1, y + 1])
+    }
 }
 
 impl<Var> Rasterizer<Var> for LineRasterizer {
-    type Primitive<V> = [VertexOutput<V>; 2];
+    type Primitive<V>
+        = [VertexOutput<V>; 2]
+    where
+        V: Copy;
 
     fn new(_front_face: FrontFace, _cull_mode: Option<Face>) -> Self {
         Self
@@ -497,6 +539,31 @@ impl<Var> Rasterizer<Var> for LineRasterizer {
         primitive
             .flat_map(move |[v0, v1]| LineRasterization::new(v0, v1, tile_bounds, width, height))
     }
+
+    fn primitive_bounds(
+        &self,
+        primitive: &Self::Primitive<Var>,
+        width: usize,
+        height: usize,
+    ) -> Option<[usize; 4]>
+    where
+        Var: Varying,
+    {
+        if width == 0 || height == 0 {
+            return None;
+        }
+
+        let v0 = clip_to_screen(primitive[0].position, width, height);
+        let v1 = clip_to_screen(primitive[1].position, width, height);
+        let max_screen_x = width.saturating_sub(1).min(i32::MAX as usize) as i32;
+        let max_screen_y = height.saturating_sub(1).min(i32::MAX as usize) as i32;
+        let x0 = ((v0.x + 0.5).floor_custom() as i32).clamp(0, max_screen_x) as usize;
+        let y0 = ((v0.y + 0.5).floor_custom() as i32).clamp(0, max_screen_y) as usize;
+        let x1 = ((v1.x + 0.5).floor_custom() as i32).clamp(0, max_screen_x) as usize;
+        let y1 = ((v1.y + 0.5).floor_custom() as i32).clamp(0, max_screen_y) as usize;
+
+        Some([x0.min(x1), y0.min(y1), x0.max(x1) + 1, y0.max(y1) + 1])
+    }
 }
 
 impl<Var> Rasterizer<Var> for TriangleRasterizer {
@@ -504,7 +571,10 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
     //     = &'a [VertexOutput<V>; 3]
     // where
     //     V: 'a;
-    type Primitive<V> = [VertexOutput<V>; 3];
+    type Primitive<V>
+        = [VertexOutput<V>; 3]
+    where
+        V: Copy;
 
     fn new(front_face: FrontFace, cull_mode: Option<crate::graphics::Face>) -> Self {
         Self {
@@ -548,6 +618,41 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
                 }
             })
             .flatten()
+    }
+
+    fn primitive_bounds(
+        &self,
+        primitive: &Self::Primitive<Var>,
+        width: usize,
+        height: usize,
+    ) -> Option<[usize; 4]>
+    where
+        Var: Varying,
+    {
+        if width == 0
+            || height == 0
+            || Self::should_cull_triangle(
+                primitive[0].position,
+                primitive[1].position,
+                primitive[2].position,
+            )
+        {
+            return None;
+        }
+
+        let v0 = clip_to_screen(primitive[0].position, width, height);
+        let v1 = clip_to_screen(primitive[1].position, width, height);
+        let v2 = clip_to_screen(primitive[2].position, width, height);
+        let min_x = (v0.x.min(v1.x).min(v2.x).floor_custom() as i32).max(0) as usize;
+        let min_y = (v0.y.min(v1.y).min(v2.y).floor_custom() as i32).max(0) as usize;
+        let max_x = (v0.x.max(v1.x).max(v2.x).ceil_custom() as i32).max(0) as usize;
+        let max_y = (v0.y.max(v1.y).max(v2.y).ceil_custom() as i32).max(0) as usize;
+        let min_x = min_x.min(width);
+        let min_y = min_y.min(height);
+        let max_x = max_x.min(width);
+        let max_y = max_y.min(height);
+
+        (min_x < max_x && min_y < max_y).then_some([min_x, min_y, max_x, max_y])
     }
 }
 
