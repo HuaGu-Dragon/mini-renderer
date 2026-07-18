@@ -59,7 +59,11 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
                 let idx = f.x + f.y * width;
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
@@ -104,7 +108,11 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
                 let idx = f.x + f.y * width;
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
@@ -151,7 +159,11 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
                 let idx = f.x + f.y * width;
                 if f.depth < depth_buffer[idx] {
@@ -202,7 +214,11 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
                 let idx = f.x + f.y * width;
                 if f.depth < depth_buffer[idx] {

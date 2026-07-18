@@ -89,6 +89,13 @@ pub trait Primitive<Var> {
     // -> impl Iterator<Item = Self::Primitive<'a, Var>>
     where
         Var: Varying;
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying;
 }
 
 impl<Var> Primitive<Var> for PointList {
@@ -101,6 +108,16 @@ impl<Var> Primitive<Var> for PointList {
         Var: Varying,
     {
         vertexs.iter().copied()
+    }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        indices.iter().map(|&index| vertexs[index])
     }
 }
 
@@ -116,6 +133,17 @@ impl<Var> Primitive<Var> for LineList {
         let (chunks, _) = vertexs.as_chunks::<2>();
         chunks.iter().copied()
     }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        let (chunks, _) = indices.as_chunks::<2>();
+        chunks.iter().map(|&[i0, i1]| [vertexs[i0], vertexs[i1]])
+    }
 }
 
 impl<Var> Primitive<Var> for LineStrip {
@@ -128,6 +156,18 @@ impl<Var> Primitive<Var> for LineStrip {
         Var: Varying,
     {
         vertexs.array_windows::<2>().copied()
+    }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        indices
+            .array_windows::<2>()
+            .map(|&[i0, i1]| [vertexs[i0], vertexs[i1]])
     }
 }
 
@@ -150,6 +190,24 @@ impl<Var> Primitive<Var> for LineLoop {
                 ]))
         })
     }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        indices.first().into_iter().flat_map(move |&first| {
+            indices
+                .array_windows::<2>()
+                .map(|&[i0, i1]| [vertexs[i0], vertexs[i1]])
+                .chain(core::iter::once([
+                    vertexs[indices.last().copied().unwrap_or(first)],
+                    vertexs[first],
+                ]))
+        })
+    }
 }
 
 impl<Var> Primitive<Var> for TriangleList {
@@ -169,6 +227,19 @@ impl<Var> Primitive<Var> for TriangleList {
         let (chunks, _) = vertexs.as_chunks::<3>();
         chunks.iter().copied()
     }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        let (chunks, _) = indices.as_chunks::<3>();
+        chunks
+            .iter()
+            .map(|&[i0, i1, i2]| [vertexs[i0], vertexs[i1], vertexs[i2]])
+    }
 }
 
 impl<Var> Primitive<Var> for TriangleStrip {
@@ -181,6 +252,18 @@ impl<Var> Primitive<Var> for TriangleStrip {
         Var: Varying,
     {
         vertexs.array_windows::<3>().copied()
+    }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        indices
+            .array_windows::<3>()
+            .map(|&[i0, i1, i2]| [vertexs[i0], vertexs[i1], vertexs[i2]])
     }
 }
 
@@ -199,5 +282,69 @@ impl<Var> Primitive<Var> for TriangleFan {
                 .copied()
                 .map(move |[v1, v2]| [first, v1, v2])
         })
+    }
+
+    fn assemble_indexed<'a>(
+        vertexs: &'a [VertexOutput<Var>],
+        indices: &'a [usize],
+    ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
+    where
+        Var: Varying,
+    {
+        indices.first().into_iter().flat_map(move |&first| {
+            indices[1..]
+                .array_windows::<2>()
+                .map(move |&[i1, i2]| [vertexs[first], vertexs[i1], vertexs[i2]])
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::math::Vec4;
+
+    #[test]
+    fn triangle_list_assembles_from_index_order() {
+        let vertices = [
+            VertexOutput {
+                position: Vec4::new(0.0, 0.0, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(1.0, 0.0, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(0.0, 1.0, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(1.0, 1.0, 0.0, 1.0),
+                varying: (),
+            },
+        ];
+        let indices = [0, 1, 2, 2, 1, 3];
+
+        let primitives = <TriangleList as Primitive<()>>::assemble_indexed(&vertices, &indices)
+            .collect::<Vec<_>>();
+
+        assert_eq!(primitives.len(), 2);
+        assert_eq!(
+            primitives[0].map(|vertex| vertex.position),
+            [
+                vertices[0].position,
+                vertices[1].position,
+                vertices[2].position,
+            ]
+        );
+        assert_eq!(
+            primitives[1].map(|vertex| vertex.position),
+            [
+                vertices[2].position,
+                vertices[1].position,
+                vertices[3].position,
+            ]
+        );
     }
 }

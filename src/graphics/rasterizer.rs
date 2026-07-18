@@ -308,6 +308,20 @@ impl TriangleRasterizer {
         false
     }
 
+    fn should_cull_face(&self, area: f32) -> bool {
+        let is_front_face = match self.front_face {
+            FrontFace::Ccw => area > 0.0,
+            FrontFace::Cw => area < 0.0,
+        };
+
+        area == 0.0
+            || match self.cull_mode {
+                Some(Face::Front) => is_front_face,
+                Some(Face::Back) => !is_front_face,
+                None => false,
+            }
+    }
+
     fn rasterize_triangle<Var>(
         &self,
         positions: [Vec4; 3],
@@ -337,17 +351,7 @@ impl TriangleRasterizer {
             Vec2::new(v2.x, v2.y),
         );
 
-        let is_front_face = match self.front_face {
-            FrontFace::Ccw => area > 0.0,
-            FrontFace::Cw => area < 0.0,
-        };
-
-        let should_cull = area == 0.0
-            || match self.cull_mode {
-                Some(crate::graphics::Face::Front) => is_front_face,
-                Some(crate::graphics::Face::Back) => !is_front_face,
-                None => false,
-            };
+        let should_cull = self.should_cull_face(area);
 
         let mut w0_row = 0.0;
         let mut w1_row = 0.0;
@@ -643,6 +647,15 @@ impl<Var> Rasterizer<Var> for TriangleRasterizer {
         let v0 = clip_to_screen(primitive[0].position, width, height);
         let v1 = clip_to_screen(primitive[1].position, width, height);
         let v2 = clip_to_screen(primitive[2].position, width, height);
+        let area = Self::edge_function(
+            Vec2::new(v0.x, v0.y),
+            Vec2::new(v1.x, v1.y),
+            Vec2::new(v2.x, v2.y),
+        );
+        if self.should_cull_face(area) {
+            return None;
+        }
+
         let min_x = (v0.x.min(v1.x).min(v2.x).floor_custom() as i32).max(0) as usize;
         let min_y = (v0.y.min(v1.y).min(v2.y).floor_custom() as i32).max(0) as usize;
         let max_x = (v0.x.max(v1.x).max(v2.x).ceil_custom() as i32).max(0) as usize;
@@ -788,6 +801,38 @@ mod tests {
         let v1 = Vec4::new(0.5, -0.5, 0.0, 1.0);
         let v2 = Vec4::new(0.0, 0.5, 0.0, 1.0);
         assert!(!TriangleRasterizer::should_cull_triangle(v0, v1, v2));
+    }
+
+    #[test]
+    fn triangle_bounds_reject_back_faces_before_binning() {
+        let rasterizer =
+            <TriangleRasterizer as Rasterizer<()>>::new(FrontFace::Cw, Some(Face::Back));
+        let front_facing = [
+            VertexOutput {
+                position: Vec4::new(-0.5, -0.5, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(0.5, -0.5, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(0.0, 0.5, 0.0, 1.0),
+                varying: (),
+            },
+        ];
+        let back_facing = [front_facing[0], front_facing[2], front_facing[1]];
+
+        assert!(
+            rasterizer
+                .primitive_bounds(&front_facing, 100, 100)
+                .is_some()
+        );
+        assert!(
+            rasterizer
+                .primitive_bounds(&back_facing, 100, 100)
+                .is_none()
+        );
     }
 
     #[test]

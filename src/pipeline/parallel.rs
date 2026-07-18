@@ -13,83 +13,67 @@ use crate::{
     },
 };
 
-const TILE_WIDTH: usize = 64;
-const TILE_HEIGHT: usize = 32;
+const ROW_HEIGHT: usize = 32;
 const MIN_BINNED_PRIMITIVES: usize = 512;
 
 #[allow(clippy::too_many_arguments)]
-fn build_tile_bins<Var, R>(
+fn build_row_bins<Var, R>(
     rasterizer: &R,
     primitives: &[R::Primitive<Var>],
     width: usize,
     height: usize,
-    tile_counts: &mut Vec<usize>,
-    tile_offsets: &mut Vec<usize>,
-    tile_indices: &mut Vec<usize>,
-    primitive_tile_ranges: &mut Vec<Option<[usize; 4]>>,
-) -> usize
-where
-    Var: Varying,
-    R: Rasterizer<Var>,
+    row_counts: &mut Vec<usize>,
+    row_offsets: &mut Vec<usize>,
+    row_indices: &mut Vec<usize>,
+    primitive_row_ranges: &mut Vec<Option<[usize; 2]>>,
+) where
+    Var: Varying + Send + Sync,
+    R: Rasterizer<Var> + Sync,
+    R::Primitive<Var>: Sync,
 {
-    let tiles_x = width.div_ceil(TILE_WIDTH);
-    let tiles_y = height.div_ceil(TILE_HEIGHT);
-    let tile_count = tiles_x * tiles_y;
+    let row_count = height.div_ceil(ROW_HEIGHT);
 
-    tile_counts.clear();
-    tile_counts.resize(tile_count, 0);
-    primitive_tile_ranges.clear();
-    primitive_tile_ranges.reserve(primitives.len());
+    row_counts.clear();
+    row_counts.resize(row_count, 0);
+    primitive_row_ranges.clear();
+    primitive_row_ranges.par_extend(primitives.par_iter().map(|primitive| {
+        rasterizer
+            .primitive_bounds(primitive, width, height)
+            .and_then(|[_, min_y, _, max_y]| {
+                let min_row = (min_y / ROW_HEIGHT).min(row_count);
+                let max_row = max_y.div_ceil(ROW_HEIGHT).min(row_count);
+                (min_row < max_row).then_some([min_row, max_row])
+            })
+    }));
 
-    for primitive in primitives {
-        let tile_range = rasterizer.primitive_bounds(primitive, width, height).map(
-            |[min_x, min_y, max_x, max_y]| {
-                [
-                    min_x / TILE_WIDTH,
-                    min_y / TILE_HEIGHT,
-                    max_x.div_ceil(TILE_WIDTH),
-                    max_y.div_ceil(TILE_HEIGHT),
-                ]
-            },
-        );
-
-        if let Some([min_x, min_y, max_x, max_y]) = tile_range {
-            for tile_y in min_y..max_y {
-                for tile_x in min_x..max_x {
-                    tile_counts[tile_y * tiles_x + tile_x] += 1;
-                }
-            }
+    for [min_row, max_row] in primitive_row_ranges.iter().flatten().copied() {
+        for count in &mut row_counts[min_row..max_row] {
+            *count += 1;
         }
-        primitive_tile_ranges.push(tile_range);
     }
 
-    tile_offsets.clear();
-    tile_offsets.reserve(tile_count + 1);
-    tile_offsets.push(0);
-    for &count in tile_counts.iter() {
-        tile_offsets.push(tile_offsets.last().copied().unwrap_or(0) + count);
+    row_offsets.clear();
+    row_offsets.reserve(row_count + 1);
+    row_offsets.push(0);
+    for &count in row_counts.iter() {
+        row_offsets.push(row_offsets.last().copied().unwrap_or(0) + count);
     }
 
-    tile_indices.clear();
-    tile_indices.resize(tile_offsets.last().copied().unwrap_or(0), 0);
-    tile_counts.fill(0);
+    row_indices.clear();
+    row_indices.resize(row_offsets.last().copied().unwrap_or(0), 0);
+    row_counts.fill(0);
 
-    for (primitive_index, tile_range) in primitive_tile_ranges.iter().copied().enumerate() {
-        let Some([min_x, min_y, max_x, max_y]) = tile_range else {
+    for (primitive_index, row_range) in primitive_row_ranges.iter().copied().enumerate() {
+        let Some([min_row, max_row]) = row_range else {
             continue;
         };
 
-        for tile_y in min_y..max_y {
-            for tile_x in min_x..max_x {
-                let tile_index = tile_y * tiles_x + tile_x;
-                let write_index = tile_offsets[tile_index] + tile_counts[tile_index];
-                tile_indices[write_index] = primitive_index;
-                tile_counts[tile_index] += 1;
-            }
+        for row in min_row..max_row {
+            let write_index = row_offsets[row] + row_counts[row];
+            row_indices[write_index] = primitive_index;
+            row_counts[row] += 1;
         }
     }
-
-    tiles_x
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -97,48 +81,41 @@ where
 fn rasterize_row<Var, R>(
     rasterizer: &R,
     primitives: &[R::Primitive<Var>],
-    tile_offsets: &[usize],
-    tile_indices: &[usize],
-    tiles_x: usize,
+    row_offsets: &[usize],
+    row_indices: &[usize],
     width: usize,
     height: usize,
-    tile_row: usize,
+    row: usize,
     use_binning: bool,
-    mut process_fragment: impl FnMut(Fragment<Var>),
+    process_fragment: impl FnMut(Fragment<Var>),
 ) where
     Var: Varying,
     R: Rasterizer<Var>,
 {
-    let tile_y = tile_row * TILE_HEIGHT;
-    let current_tile_height = (height - tile_y).min(TILE_HEIGHT);
+    let row_y = row * ROW_HEIGHT;
+    let current_row_height = (height - row_y).min(ROW_HEIGHT);
 
-    if !use_binning {
+    if use_binning {
+        let primitive_indices = &row_indices[row_offsets[row]..row_offsets[row + 1]];
+        rasterizer
+            .rasterize_tile(
+                primitive_indices
+                    .iter()
+                    .map(|&primitive_index| primitives[primitive_index]),
+                width,
+                height,
+                [0, row_y, width, current_row_height],
+            )
+            .for_each(process_fragment);
+    } else {
         rasterizer
             .rasterize_tile(
                 primitives.iter().copied(),
                 width,
                 height,
-                [0, tile_y, width, current_tile_height],
+                [0, row_y, width, current_row_height],
             )
             .for_each(process_fragment);
-        return;
-    }
-
-    for tile_column in 0..tiles_x {
-        let tile_index = tile_row * tiles_x + tile_column;
-        let primitive_indices =
-            &tile_indices[tile_offsets[tile_index]..tile_offsets[tile_index + 1]];
-        let tile_x = tile_column * TILE_WIDTH;
-        let current_tile_width = (width - tile_x).min(TILE_WIDTH);
-        let fragments = rasterizer.rasterize_tile(
-            primitive_indices
-                .iter()
-                .map(|&primitive_index| primitives[primitive_index]),
-            width,
-            height,
-            [tile_x, tile_y, current_tile_width, current_tile_height],
-        );
-        fragments.for_each(&mut process_fragment);
     }
 }
 
@@ -151,10 +128,11 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             fragment_shader,
             vertex_cache: Vec::new(),
             index_cache: Vec::new(),
-            tile_counts: Vec::new(),
-            tile_offsets: Vec::new(),
-            tile_indices: Vec::new(),
-            primitive_tile_ranges: Vec::new(),
+            primitive_cache: Vec::new(),
+            row_counts: Vec::new(),
+            row_offsets: Vec::new(),
+            row_indices: Vec::new(),
+            primitive_row_ranges: Vec::new(),
         }
     }
 
@@ -188,50 +166,59 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
-            self.index_cache
+            vertices
                 .par_iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
         );
 
-        let primitive_cache: Vec<_> = T::assemble(&self.vertex_cache).collect();
+        self.primitive_cache.clear();
+        self.primitive_cache
+            .extend(T::assemble_indexed(&self.vertex_cache, &self.index_cache));
+        let primitive_cache = &self.primitive_cache;
+        if primitive_cache.is_empty() {
+            return;
+        }
+
         let use_binning = primitive_cache.len() >= MIN_BINNED_PRIMITIVES;
-        let tiles_x = if use_binning {
-            build_tile_bins(
+        if use_binning {
+            build_row_bins(
                 &self.rasterizer,
-                &primitive_cache,
+                primitive_cache,
                 width,
                 height,
-                &mut self.tile_counts,
-                &mut self.tile_offsets,
-                &mut self.tile_indices,
-                &mut self.primitive_tile_ranges,
-            )
-        } else {
-            0
-        };
-        let tile_offsets = &self.tile_offsets;
-        let tile_indices = &self.tile_indices;
+                &mut self.row_counts,
+                &mut self.row_offsets,
+                &mut self.row_indices,
+                &mut self.primitive_row_ranges,
+            );
+        }
+        if use_binning && self.row_indices.is_empty() {
+            return;
+        }
+
+        let row_offsets = &self.row_offsets;
+        let row_indices = &self.row_indices;
         let rasterizer = &self.rasterizer;
         let fragment_shader = &self.fragment_shader;
-        let chunk_size = width * TILE_HEIGHT;
+        let chunk_size = width * ROW_HEIGHT;
 
         framebuffer
             .par_chunks_mut(chunk_size)
             .enumerate()
-            .for_each(|(tile_row, fb_chunk)| {
-                let tile_y = tile_row * TILE_HEIGHT;
+            .for_each(|(row, fb_chunk)| {
+                let row_y = row * ROW_HEIGHT;
                 rasterize_row(
                     rasterizer,
-                    &primitive_cache,
-                    tile_offsets,
-                    tile_indices,
-                    tiles_x,
+                    primitive_cache,
+                    row_offsets,
+                    row_indices,
                     width,
                     height,
-                    tile_row,
+                    row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - tile_y;
+                        let local_y = f.y - row_y;
                         let local_idx = f.x + local_y * width;
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
@@ -273,50 +260,59 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
-            self.index_cache
+            vertices
                 .par_iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
         );
 
-        let primitive_cache: Vec<_> = T::assemble(&self.vertex_cache).collect();
+        self.primitive_cache.clear();
+        self.primitive_cache
+            .extend(T::assemble_indexed(&self.vertex_cache, &self.index_cache));
+        let primitive_cache = &self.primitive_cache;
+        if primitive_cache.is_empty() {
+            return;
+        }
+
         let use_binning = primitive_cache.len() >= MIN_BINNED_PRIMITIVES;
-        let tiles_x = if use_binning {
-            build_tile_bins(
+        if use_binning {
+            build_row_bins(
                 &self.rasterizer,
-                &primitive_cache,
+                primitive_cache,
                 width,
                 height,
-                &mut self.tile_counts,
-                &mut self.tile_offsets,
-                &mut self.tile_indices,
-                &mut self.primitive_tile_ranges,
-            )
-        } else {
-            0
-        };
-        let tile_offsets = &self.tile_offsets;
-        let tile_indices = &self.tile_indices;
+                &mut self.row_counts,
+                &mut self.row_offsets,
+                &mut self.row_indices,
+                &mut self.primitive_row_ranges,
+            );
+        }
+        if use_binning && self.row_indices.is_empty() {
+            return;
+        }
+
+        let row_offsets = &self.row_offsets;
+        let row_indices = &self.row_indices;
         let rasterizer = &self.rasterizer;
         let fragment_shader = &self.fragment_shader;
-        let chunk_size = width * TILE_HEIGHT;
+        let chunk_size = width * ROW_HEIGHT;
 
         framebuffer
             .par_chunks_mut(chunk_size)
             .enumerate()
-            .for_each(|(tile_row, fb_chunk)| {
-                let tile_y = tile_row * TILE_HEIGHT;
+            .for_each(|(row, fb_chunk)| {
+                let row_y = row * ROW_HEIGHT;
                 rasterize_row(
                     rasterizer,
-                    &primitive_cache,
-                    tile_offsets,
-                    tile_indices,
-                    tiles_x,
+                    primitive_cache,
+                    row_offsets,
+                    row_indices,
                     width,
                     height,
-                    tile_row,
+                    row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - tile_y;
+                        let local_y = f.y - row_y;
                         let local_idx = f.x + local_y * width;
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
@@ -360,51 +356,60 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
-            self.index_cache
+            vertices
                 .par_iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
         );
 
-        let primitive_cache: Vec<_> = T::assemble(&self.vertex_cache).collect();
+        self.primitive_cache.clear();
+        self.primitive_cache
+            .extend(T::assemble_indexed(&self.vertex_cache, &self.index_cache));
+        let primitive_cache = &self.primitive_cache;
+        if primitive_cache.is_empty() {
+            return;
+        }
+
         let use_binning = primitive_cache.len() >= MIN_BINNED_PRIMITIVES;
-        let tiles_x = if use_binning {
-            build_tile_bins(
+        if use_binning {
+            build_row_bins(
                 &self.rasterizer,
-                &primitive_cache,
+                primitive_cache,
                 width,
                 height,
-                &mut self.tile_counts,
-                &mut self.tile_offsets,
-                &mut self.tile_indices,
-                &mut self.primitive_tile_ranges,
-            )
-        } else {
-            0
-        };
-        let tile_offsets = &self.tile_offsets;
-        let tile_indices = &self.tile_indices;
+                &mut self.row_counts,
+                &mut self.row_offsets,
+                &mut self.row_indices,
+                &mut self.primitive_row_ranges,
+            );
+        }
+        if use_binning && self.row_indices.is_empty() {
+            return;
+        }
+
+        let row_offsets = &self.row_offsets;
+        let row_indices = &self.row_indices;
         let rasterizer = &self.rasterizer;
         let fragment_shader = &self.fragment_shader;
-        let chunk_size = width * TILE_HEIGHT;
+        let chunk_size = width * ROW_HEIGHT;
 
         framebuffer
             .par_chunks_mut(chunk_size)
             .zip(depth_buffer.par_chunks_mut(chunk_size))
             .enumerate()
-            .for_each(|(tile_row, (fb_chunk, db_chunk))| {
-                let tile_y = tile_row * TILE_HEIGHT;
+            .for_each(|(row, (fb_chunk, db_chunk))| {
+                let row_y = row * ROW_HEIGHT;
                 rasterize_row(
                     rasterizer,
-                    &primitive_cache,
-                    tile_offsets,
-                    tile_indices,
-                    tiles_x,
+                    primitive_cache,
+                    row_offsets,
+                    row_indices,
                     width,
                     height,
-                    tile_row,
+                    row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - tile_y;
+                        let local_y = f.y - row_y;
                         let local_idx = f.x + local_y * width;
                         if f.depth < db_chunk[local_idx] {
                             let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
@@ -452,51 +457,60 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.par_extend(
-            self.index_cache
+            vertices
                 .par_iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
         );
 
-        let primitive_cache: Vec<_> = T::assemble(&self.vertex_cache).collect();
+        self.primitive_cache.clear();
+        self.primitive_cache
+            .extend(T::assemble_indexed(&self.vertex_cache, &self.index_cache));
+        let primitive_cache = &self.primitive_cache;
+        if primitive_cache.is_empty() {
+            return;
+        }
+
         let use_binning = primitive_cache.len() >= MIN_BINNED_PRIMITIVES;
-        let tiles_x = if use_binning {
-            build_tile_bins(
+        if use_binning {
+            build_row_bins(
                 &self.rasterizer,
-                &primitive_cache,
+                primitive_cache,
                 width,
                 height,
-                &mut self.tile_counts,
-                &mut self.tile_offsets,
-                &mut self.tile_indices,
-                &mut self.primitive_tile_ranges,
-            )
-        } else {
-            0
-        };
-        let tile_offsets = &self.tile_offsets;
-        let tile_indices = &self.tile_indices;
+                &mut self.row_counts,
+                &mut self.row_offsets,
+                &mut self.row_indices,
+                &mut self.primitive_row_ranges,
+            );
+        }
+        if use_binning && self.row_indices.is_empty() {
+            return;
+        }
+
+        let row_offsets = &self.row_offsets;
+        let row_indices = &self.row_indices;
         let rasterizer = &self.rasterizer;
         let fragment_shader = &self.fragment_shader;
-        let chunk_size = width * TILE_HEIGHT;
+        let chunk_size = width * ROW_HEIGHT;
 
         framebuffer
             .par_chunks_mut(chunk_size)
             .zip(depth_buffer.par_chunks_mut(chunk_size))
             .enumerate()
-            .for_each(|(tile_row, (fb_chunk, db_chunk))| {
-                let tile_y = tile_row * TILE_HEIGHT;
+            .for_each(|(row, (fb_chunk, db_chunk))| {
+                let row_y = row * ROW_HEIGHT;
                 rasterize_row(
                     rasterizer,
-                    &primitive_cache,
-                    tile_offsets,
-                    tile_indices,
-                    tiles_x,
+                    primitive_cache,
+                    row_offsets,
+                    row_indices,
                     width,
                     height,
-                    tile_row,
+                    row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - tile_y;
+                        let local_y = f.y - row_y;
                         let local_idx = f.x + local_y * width;
                         if f.depth < db_chunk[local_idx] {
                             let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
@@ -522,7 +536,7 @@ mod tests {
     };
 
     #[test]
-    fn tile_bins_assign_points_to_matching_tiles() {
+    fn row_bins_assign_points_to_matching_rows() {
         let rasterizer = <PointRasterizer as Rasterizer<()>>::new(FrontFace::Ccw, None);
         let primitives = [
             VertexOutput {
@@ -534,29 +548,28 @@ mod tests {
                 varying: (),
             },
         ];
-        let mut tile_counts = Vec::new();
-        let mut tile_offsets = Vec::new();
-        let mut tile_indices = Vec::new();
-        let mut primitive_tile_ranges = Vec::new();
+        let mut row_counts = Vec::new();
+        let mut row_offsets = Vec::new();
+        let mut row_indices = Vec::new();
+        let mut primitive_row_ranges = Vec::new();
 
-        let tiles_x = build_tile_bins(
+        build_row_bins(
             &rasterizer,
             &primitives,
             128,
             64,
-            &mut tile_counts,
-            &mut tile_offsets,
-            &mut tile_indices,
-            &mut primitive_tile_ranges,
+            &mut row_counts,
+            &mut row_offsets,
+            &mut row_indices,
+            &mut primitive_row_ranges,
         );
 
-        assert_eq!(tiles_x, 2);
-        assert_eq!(tile_offsets, [0, 1, 1, 1, 2]);
-        assert_eq!(tile_indices, [0, 1]);
+        assert_eq!(row_offsets, [0, 1, 2]);
+        assert_eq!(row_indices, [0, 1]);
     }
 
     #[test]
-    fn tile_bins_preserve_primitive_order() {
+    fn row_bins_preserve_primitive_order() {
         let rasterizer = <PointRasterizer as Rasterizer<()>>::new(FrontFace::Ccw, None);
         let primitives = [
             VertexOutput {
@@ -572,22 +585,22 @@ mod tests {
                 varying: (),
             },
         ];
-        let mut tile_counts = Vec::new();
-        let mut tile_offsets = Vec::new();
-        let mut tile_indices = Vec::new();
-        let mut primitive_tile_ranges = Vec::new();
+        let mut row_counts = Vec::new();
+        let mut row_offsets = Vec::new();
+        let mut row_indices = Vec::new();
+        let mut primitive_row_ranges = Vec::new();
 
-        build_tile_bins(
+        build_row_bins(
             &rasterizer,
             &primitives,
             128,
             64,
-            &mut tile_counts,
-            &mut tile_offsets,
-            &mut tile_indices,
-            &mut primitive_tile_ranges,
+            &mut row_counts,
+            &mut row_offsets,
+            &mut row_indices,
+            &mut primitive_row_ranges,
         );
 
-        assert_eq!(&tile_indices[tile_offsets[0]..tile_offsets[1]], [0, 1, 2]);
+        assert_eq!(&row_indices[row_offsets[0]..row_offsets[1]], [0, 1, 2]);
     }
 }
