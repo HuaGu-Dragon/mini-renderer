@@ -231,6 +231,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 .for_each(|(row, fb_chunk)| {
                     let row_y = row * row_height;
                     let current_row_height = (height - row_y).min(row_height);
+                    let process_fragment = |f: Fragment<Var>| {
+                        let local_y = f.y - row_y;
+                        let local_idx = f.x + local_y * width;
+                        let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
+                            return;
+                        };
+                        fb_chunk[local_idx] = output.into();
+                    };
 
                     if indices_are_sequential {
                         rasterizer
@@ -240,15 +248,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
-                                let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
-                                else {
-                                    return;
-                                };
-                                fb_chunk[local_idx] = output.into();
-                            });
+                            .for_each(process_fragment);
                     } else {
                         rasterizer
                             .rasterize_tile(
@@ -257,15 +257,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
-                                let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
-                                else {
-                                    return;
-                                };
-                                fb_chunk[local_idx] = output.into();
-                            });
+                            .for_each(process_fragment);
                     }
                 });
             return;
