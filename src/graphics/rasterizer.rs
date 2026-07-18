@@ -5,8 +5,7 @@ use crate::{
 };
 
 pub struct Fragment<V> {
-    pub(crate) x: usize,
-    pub(crate) y: usize,
+    pub(crate) index: usize,
     pub(crate) depth: f32,
     pub(crate) varying: V,
 }
@@ -96,6 +95,7 @@ struct LineRasterization<Var> {
     z1: f32,
     v0_varying: Var,
     v1_varying: Var,
+    tile_width: usize,
     tile_x: i32,
     tile_y: i32,
     tile_max_x: i32,
@@ -140,6 +140,7 @@ impl<Var: Varying> LineRasterization<Var> {
                 z1,
                 v0_varying,
                 v1_varying,
+                tile_width: 0,
                 tile_x: 0,
                 tile_y: 0,
                 tile_max_x: 0,
@@ -194,6 +195,7 @@ impl<Var: Varying> LineRasterization<Var> {
             z1,
             v0_varying,
             v1_varying,
+            tile_width,
             tile_x,
             tile_y,
             tile_max_x,
@@ -256,8 +258,7 @@ impl<Var: Varying> Iterator for LineRasterization<Var> {
             };
 
             return Some(Fragment {
-                x: x as usize,
-                y: y as usize,
+                index: (y - self.tile_y) as usize * self.tile_width + (x - self.tile_x) as usize,
                 depth: Varying::interpolate(self.z0, self.z1, self.z0, w0, w1, 0.0),
                 varying: Varying::interpolate(
                     self.v0_varying,
@@ -384,7 +385,21 @@ impl TriangleRasterizer {
             w1_row = Self::edge_function(Vec2::new(v2.x, v2.y), Vec2::new(v0.x, v0.y), p_row);
             w2_row = Self::edge_function(Vec2::new(v0.x, v0.y), Vec2::new(v1.x, v1.y), p_row);
 
-            inv_area = 1.0 / area;
+            if area < 0.0 {
+                w0_row = -w0_row;
+                w1_row = -w1_row;
+                w2_row = -w2_row;
+
+                step_x0 = -step_x0;
+                step_x1 = -step_x1;
+                step_x2 = -step_x2;
+
+                step_y0 = -step_y0;
+                step_y1 = -step_y1;
+                step_y2 = -step_y2;
+            }
+
+            inv_area = 1.0 / area.abs();
             inv_w0 = 1.0 / v0.w;
             inv_w1 = 1.0 / v1.w;
             inv_w2 = 1.0 / v2.w;
@@ -394,6 +409,7 @@ impl TriangleRasterizer {
         let y_range = min_y..max_y;
 
         y_range.flat_map(move |y| {
+            let row_offset = (y - tile_y as i32) as usize * tile_width;
             let mut w0 = w0_row;
             let mut w1 = w1_row;
             let mut w2 = w2_row;
@@ -411,9 +427,7 @@ impl TriangleRasterizer {
                 w1 += step_x1;
                 w2 += step_x2;
 
-                let inside = (current_w0 * area >= 0.0)
-                    && (current_w1 * area >= 0.0)
-                    && (current_w2 * area >= 0.0);
+                let inside = current_w0 >= 0.0 && current_w1 >= 0.0 && current_w2 >= 0.0;
 
                 if inside {
                     let alpha = current_w0 * inv_area;
@@ -427,8 +441,7 @@ impl TriangleRasterizer {
                     let inv_pc_sum = 1.0 / inv_w;
 
                     Some(Fragment {
-                        x: x as usize,
-                        y: y as usize,
+                        index: row_offset + (x - tile_x as i32) as usize,
                         depth: Varying::interpolate(v0.z, v1.z, v2.z, alpha, beta, gamma),
                         varying: Varying::interpolate(
                             v0_varying,
@@ -483,8 +496,7 @@ impl<Var> Rasterizer<Var> for PointRasterizer {
                 None
             } else {
                 Some(Fragment {
-                    x,
-                    y,
+                    index: (y - tile_y) * tile_width + (x - tile_x),
                     depth: point.z,
                     varying: v.varying,
                 })
@@ -839,10 +851,59 @@ mod tests {
         };
 
         let fragments: Vec<_> = rasterizer
-            .rasterize_tile(core::iter::once(vertex), 100, 100, [0, 50, 100, 50])
+            .rasterize_tile(core::iter::once(vertex), 100, 100, [40, 50, 20, 20])
             .collect();
 
         assert_eq!(fragments.len(), 1);
-        assert_eq!((fragments[0].x, fragments[0].y), (50, 50));
+        assert_eq!(fragments[0].index, 10);
+    }
+
+    #[test]
+    fn test_line_indices_are_relative_to_offset_tile() {
+        let rasterizer = <LineRasterizer as Rasterizer<()>>::new(FrontFace::Ccw, None);
+        let line = [
+            VertexOutput {
+                position: Vec4::new(-0.2, 0.0, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(0.2, 0.0, 0.0, 1.0),
+                varying: (),
+            },
+        ];
+
+        let fragments: Vec<_> = rasterizer
+            .rasterize_tile(core::iter::once(line), 100, 100, [40, 50, 20, 20])
+            .collect();
+
+        assert_eq!(fragments.len(), 20);
+        assert_eq!(fragments.first().unwrap().index, 0);
+        assert_eq!(fragments.last().unwrap().index, 19);
+    }
+
+    #[test]
+    fn test_triangle_indices_stay_inside_offset_tile() {
+        let rasterizer = <TriangleRasterizer as Rasterizer<()>>::new(FrontFace::Ccw, None);
+        let triangle = [
+            VertexOutput {
+                position: Vec4::new(-0.16, 0.16, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(0.16, 0.16, 0.0, 1.0),
+                varying: (),
+            },
+            VertexOutput {
+                position: Vec4::new(0.0, -0.16, 0.0, 1.0),
+                varying: (),
+            },
+        ];
+
+        let fragments: Vec<_> = rasterizer
+            .rasterize_tile(core::iter::once(triangle), 100, 100, [40, 40, 20, 20])
+            .collect();
+
+        assert!(!fragments.is_empty());
+        assert!(fragments.iter().all(|fragment| fragment.index < 20 * 20));
     }
 }

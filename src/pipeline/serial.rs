@@ -66,11 +66,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 height,
             )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
-                framebuffer[idx] = output.into();
+                framebuffer[f.index] = output.into();
             });
     }
 
@@ -116,11 +115,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 height,
             )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
-                framebuffer[idx] = F::blend(output, C::from(framebuffer[idx])).into();
+                framebuffer[f.index] = F::blend(output, C::from(framebuffer[f.index])).into();
             });
     }
 
@@ -168,13 +166,12 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 height,
             )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
-                if f.depth < depth_buffer[idx] {
+                if f.depth < depth_buffer[f.index] {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    framebuffer[idx] = output.into();
-                    depth_buffer[idx] = f.depth;
+                    framebuffer[f.index] = output.into();
+                    depth_buffer[f.index] = f.depth;
                 }
             });
     }
@@ -224,13 +221,12 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 height,
             )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
-                if f.depth < depth_buffer[idx] {
+                if f.depth < depth_buffer[f.index] {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    framebuffer[idx] = F::blend(output, C::from(framebuffer[idx])).into();
-                    depth_buffer[idx] = f.depth;
+                    framebuffer[f.index] = F::blend(output, C::from(framebuffer[f.index])).into();
+                    depth_buffer[f.index] = f.depth;
                 }
             });
     }

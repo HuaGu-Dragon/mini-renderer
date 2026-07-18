@@ -229,12 +229,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                         [0, row_y, width, current_row_height],
                     )
                     .for_each(|f| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[local_idx] = output.into();
+                        fb_chunk[f.index] = output.into();
                     });
             });
     }
@@ -330,12 +328,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                     let row_y = row * row_height;
                     let current_row_height = (height - row_y).min(row_height);
                     let process_fragment = |f: Fragment<Var>| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[local_idx] = output.into();
+                        fb_chunk[f.index] = output.into();
                     };
 
                     if indices_are_sequential {
@@ -406,7 +402,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             .par_chunks_mut(chunk_size)
             .enumerate()
             .for_each(|(row, fb_chunk)| {
-                let row_y = row * row_height;
                 rasterize_row(
                     rasterizer,
                     primitive_cache,
@@ -418,12 +413,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                     row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[local_idx] = output.into();
+                        fb_chunk[f.index] = output.into();
                     },
                 );
             });
@@ -501,14 +494,12 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 [0, row_y, width, current_row_height],
                             )
                             .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
                                 let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
                                 else {
                                     return;
                                 };
-                                fb_chunk[local_idx] =
-                                    F::blend(output, C::from(fb_chunk[local_idx])).into();
+                                fb_chunk[f.index] =
+                                    F::blend(output, C::from(fb_chunk[f.index])).into();
                             });
                     } else {
                         rasterizer
@@ -519,14 +510,12 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 [0, row_y, width, current_row_height],
                             )
                             .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
                                 let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
                                 else {
                                     return;
                                 };
-                                fb_chunk[local_idx] =
-                                    F::blend(output, C::from(fb_chunk[local_idx])).into();
+                                fb_chunk[f.index] =
+                                    F::blend(output, C::from(fb_chunk[f.index])).into();
                             });
                     }
                 });
@@ -578,7 +567,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             .par_chunks_mut(chunk_size)
             .enumerate()
             .for_each(|(row, fb_chunk)| {
-                let row_y = row * row_height;
                 rasterize_row(
                     rasterizer,
                     primitive_cache,
@@ -590,12 +578,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                     row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[local_idx] = F::blend(output, C::from(fb_chunk[local_idx])).into();
+                        fb_chunk[f.index] = F::blend(output, C::from(fb_chunk[f.index])).into();
                     },
                 );
             });
@@ -676,15 +662,13 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 [0, row_y, width, current_row_height],
                             )
                             .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
-                                if f.depth < db_chunk[local_idx] {
+                                if f.depth < db_chunk[f.index] {
                                     let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
                                     else {
                                         return;
                                     };
-                                    fb_chunk[local_idx] = output.into();
-                                    db_chunk[local_idx] = f.depth;
+                                    fb_chunk[f.index] = output.into();
+                                    db_chunk[f.index] = f.depth;
                                 }
                             });
                     } else {
@@ -696,15 +680,13 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 [0, row_y, width, current_row_height],
                             )
                             .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
-                                if f.depth < db_chunk[local_idx] {
+                                if f.depth < db_chunk[f.index] {
                                     let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
                                     else {
                                         return;
                                     };
-                                    fb_chunk[local_idx] = output.into();
-                                    db_chunk[local_idx] = f.depth;
+                                    fb_chunk[f.index] = output.into();
+                                    db_chunk[f.index] = f.depth;
                                 }
                             });
                     }
@@ -758,7 +740,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             .zip(depth_buffer.par_chunks_mut(chunk_size))
             .enumerate()
             .for_each(|(row, (fb_chunk, db_chunk))| {
-                let row_y = row * row_height;
                 rasterize_row(
                     rasterizer,
                     primitive_cache,
@@ -770,14 +751,12 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                     row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
-                        if f.depth < db_chunk[local_idx] {
+                        if f.depth < db_chunk[f.index] {
                             let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                                 return;
                             };
-                            fb_chunk[local_idx] = output.into();
-                            db_chunk[local_idx] = f.depth;
+                            fb_chunk[f.index] = output.into();
+                            db_chunk[f.index] = f.depth;
                         }
                     },
                 );
@@ -860,16 +839,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 [0, row_y, width, current_row_height],
                             )
                             .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
-                                if f.depth < db_chunk[local_idx] {
+                                if f.depth < db_chunk[f.index] {
                                     let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
                                     else {
                                         return;
                                     };
-                                    fb_chunk[local_idx] =
-                                        F::blend(output, C::from(fb_chunk[local_idx])).into();
-                                    db_chunk[local_idx] = f.depth;
+                                    fb_chunk[f.index] =
+                                        F::blend(output, C::from(fb_chunk[f.index])).into();
+                                    db_chunk[f.index] = f.depth;
                                 }
                             });
                     } else {
@@ -881,16 +858,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 [0, row_y, width, current_row_height],
                             )
                             .for_each(|f| {
-                                let local_y = f.y - row_y;
-                                let local_idx = f.x + local_y * width;
-                                if f.depth < db_chunk[local_idx] {
+                                if f.depth < db_chunk[f.index] {
                                     let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
                                     else {
                                         return;
                                     };
-                                    fb_chunk[local_idx] =
-                                        F::blend(output, C::from(fb_chunk[local_idx])).into();
-                                    db_chunk[local_idx] = f.depth;
+                                    fb_chunk[f.index] =
+                                        F::blend(output, C::from(fb_chunk[f.index])).into();
+                                    db_chunk[f.index] = f.depth;
                                 }
                             });
                     }
@@ -944,7 +919,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             .zip(depth_buffer.par_chunks_mut(chunk_size))
             .enumerate()
             .for_each(|(row, (fb_chunk, db_chunk))| {
-                let row_y = row * row_height;
                 rasterize_row(
                     rasterizer,
                     primitive_cache,
@@ -956,15 +930,12 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                     row,
                     use_binning,
                     |f| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
-                        if f.depth < db_chunk[local_idx] {
+                        if f.depth < db_chunk[f.index] {
                             let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                                 return;
                             };
-                            fb_chunk[local_idx] =
-                                F::blend(output, C::from(fb_chunk[local_idx])).into();
-                            db_chunk[local_idx] = f.depth;
+                            fb_chunk[f.index] = F::blend(output, C::from(fb_chunk[f.index])).into();
+                            db_chunk[f.index] = f.depth;
                         }
                     },
                 );
