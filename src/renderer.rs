@@ -186,6 +186,16 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
+        #[cfg(feature = "rayon")]
+        self.pipeline.draw_without_depth(
+            vertices,
+            framebuffer,
+            self.renderer.width,
+            self.renderer.height,
+            uniform,
+        );
+
+        #[cfg(not(feature = "rayon"))]
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
 

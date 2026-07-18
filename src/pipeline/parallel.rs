@@ -171,6 +171,104 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
     }
 
     #[inline]
+    pub(crate) fn draw_without_depth<Var, C, U>(
+        &mut self,
+        vertices: &[V::Vertex],
+        framebuffer: &mut [C],
+        width: usize,
+        height: usize,
+        uniform: &U,
+    ) where
+        T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
+        V: VertexShader<Varying = Var, Uniform = U> + Sync,
+        F: FragmentShader<Varying = Var, Uniform = U> + Sync,
+        Var: Varying + Send + Sync,
+        U: Sync,
+        C: From<F::Output> + Send,
+        V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
+    {
+        assert_eq!(framebuffer.len(), width * height);
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        let threads = rayon::current_num_threads().max(1);
+        if threads > 1 && T::primitive_count(vertices.len()) >= MIN_BINNED_PRIMITIVES {
+            self.draw_without_depth_large(vertices, framebuffer, width, height, uniform);
+            return;
+        }
+
+        self.vertex_cache.clear();
+        self.vertex_cache.par_extend(
+            vertices
+                .par_iter()
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
+        );
+
+        let row_height = height.div_ceil(threads);
+        let chunk_size = width * row_height;
+        let rasterizer = &self.rasterizer;
+        let fragment_shader = &self.fragment_shader;
+        let vertex_cache = &self.vertex_cache;
+
+        framebuffer
+            .par_chunks_mut(chunk_size)
+            .enumerate()
+            .for_each(|(row, fb_chunk)| {
+                let row_y = row * row_height;
+                let current_row_height = (height - row_y).min(row_height);
+
+                rasterizer
+                    .rasterize_tile(
+                        T::assemble(vertex_cache),
+                        width,
+                        height,
+                        [0, row_y, width, current_row_height],
+                    )
+                    .for_each(|f| {
+                        let local_y = f.y - row_y;
+                        let local_idx = f.x + local_y * width;
+                        let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
+                            return;
+                        };
+                        fb_chunk[local_idx] = output.into();
+                    });
+            });
+    }
+
+    #[inline(never)]
+    fn draw_without_depth_large<Var, C, U>(
+        &mut self,
+        vertices: &[V::Vertex],
+        framebuffer: &mut [C],
+        width: usize,
+        height: usize,
+        uniform: &U,
+    ) where
+        T: Primitive<Var>,
+        <T as Primitive<Var>>::Rasterizer: Sync,
+        V: VertexShader<Varying = Var, Uniform = U> + Sync,
+        F: FragmentShader<Varying = Var, Uniform = U> + Sync,
+        Var: Varying + Send + Sync,
+        U: Sync,
+        C: From<F::Output> + Send,
+        V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
+    {
+        self.draw_indexed_without_depth(
+            vertices,
+            0..vertices.len(),
+            framebuffer,
+            width,
+            height,
+            uniform,
+        );
+    }
+
+    #[inline]
     pub(crate) fn draw_indexed_without_depth<Var, C, U>(
         &mut self,
         vertices: &[V::Vertex],
