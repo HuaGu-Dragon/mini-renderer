@@ -201,12 +201,20 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         }
 
         self.vertex_cache.clear();
-        self.vertex_cache.par_extend(
-            vertices
-                .par_iter()
-                .enumerate()
-                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
-        );
+        if indices_are_sequential {
+            self.vertex_cache.par_extend(
+                self.index_cache
+                    .par_iter()
+                    .map(|&index| self.vertex_shader.vs_main(index, &vertices[index], uniform)),
+            );
+        } else {
+            self.vertex_cache.par_extend(
+                vertices
+                    .par_iter()
+                    .enumerate()
+                    .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
+            );
+        }
 
         let primitive_count = T::primitive_count(self.index_cache.len());
         if rayon::current_num_threads() == 1 || primitive_count < MIN_BINNED_PRIMITIVES {
@@ -223,14 +231,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 .for_each(|(row, fb_chunk)| {
                     let row_y = row * row_height;
                     let current_row_height = (height - row_y).min(row_height);
-                    let mut process_fragment = |f: Fragment<Var>| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
-                        let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
-                            return;
-                        };
-                        fb_chunk[local_idx] = output.into();
-                    };
 
                     if indices_are_sequential {
                         rasterizer
@@ -240,7 +240,15 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                else {
+                                    return;
+                                };
+                                fb_chunk[local_idx] = output.into();
+                            });
                     } else {
                         rasterizer
                             .rasterize_tile(
@@ -249,7 +257,15 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                else {
+                                    return;
+                                };
+                                fb_chunk[local_idx] = output.into();
+                            });
                     }
                 });
             return;
@@ -355,12 +371,20 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             && self.index_cache.iter().copied().eq(0..vertices.len());
 
         self.vertex_cache.clear();
-        self.vertex_cache.par_extend(
-            vertices
-                .par_iter()
-                .enumerate()
-                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
-        );
+        if indices_are_sequential {
+            self.vertex_cache.par_extend(
+                self.index_cache
+                    .par_iter()
+                    .map(|&index| self.vertex_shader.vs_main(index, &vertices[index], uniform)),
+            );
+        } else {
+            self.vertex_cache.par_extend(
+                vertices
+                    .par_iter()
+                    .enumerate()
+                    .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
+            );
+        }
 
         let primitive_count = T::primitive_count(self.index_cache.len());
         if rayon::current_num_threads() == 1 || primitive_count < MIN_BINNED_PRIMITIVES {
@@ -377,14 +401,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 .for_each(|(row, fb_chunk)| {
                     let row_y = row * row_height;
                     let current_row_height = (height - row_y).min(row_height);
-                    let mut process_fragment = |f: Fragment<Var>| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
-                        let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
-                            return;
-                        };
-                        fb_chunk[local_idx] = F::blend(output, C::from(fb_chunk[local_idx])).into();
-                    };
 
                     if indices_are_sequential {
                         rasterizer
@@ -394,7 +410,16 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                else {
+                                    return;
+                                };
+                                fb_chunk[local_idx] =
+                                    F::blend(output, C::from(fb_chunk[local_idx])).into();
+                            });
                     } else {
                         rasterizer
                             .rasterize_tile(
@@ -403,7 +428,16 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                else {
+                                    return;
+                                };
+                                fb_chunk[local_idx] =
+                                    F::blend(output, C::from(fb_chunk[local_idx])).into();
+                            });
                     }
                 });
             return;
@@ -511,12 +545,20 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             && self.index_cache.iter().copied().eq(0..vertices.len());
 
         self.vertex_cache.clear();
-        self.vertex_cache.par_extend(
-            vertices
-                .par_iter()
-                .enumerate()
-                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
-        );
+        if indices_are_sequential {
+            self.vertex_cache.par_extend(
+                self.index_cache
+                    .par_iter()
+                    .map(|&index| self.vertex_shader.vs_main(index, &vertices[index], uniform)),
+            );
+        } else {
+            self.vertex_cache.par_extend(
+                vertices
+                    .par_iter()
+                    .enumerate()
+                    .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
+            );
+        }
 
         let primitive_count = T::primitive_count(self.index_cache.len());
         if rayon::current_num_threads() == 1 || primitive_count < MIN_BINNED_PRIMITIVES {
@@ -534,17 +576,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 .for_each(|(row, (fb_chunk, db_chunk))| {
                     let row_y = row * row_height;
                     let current_row_height = (height - row_y).min(row_height);
-                    let mut process_fragment = |f: Fragment<Var>| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
-                        if f.depth < db_chunk[local_idx] {
-                            let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
-                                return;
-                            };
-                            fb_chunk[local_idx] = output.into();
-                            db_chunk[local_idx] = f.depth;
-                        }
-                    };
 
                     if indices_are_sequential {
                         rasterizer
@@ -554,7 +585,18 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                if f.depth < db_chunk[local_idx] {
+                                    let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                    else {
+                                        return;
+                                    };
+                                    fb_chunk[local_idx] = output.into();
+                                    db_chunk[local_idx] = f.depth;
+                                }
+                            });
                     } else {
                         rasterizer
                             .rasterize_tile(
@@ -563,7 +605,18 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                if f.depth < db_chunk[local_idx] {
+                                    let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                    else {
+                                        return;
+                                    };
+                                    fb_chunk[local_idx] = output.into();
+                                    db_chunk[local_idx] = f.depth;
+                                }
+                            });
                     }
                 });
             return;
@@ -676,12 +729,20 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             && self.index_cache.iter().copied().eq(0..vertices.len());
 
         self.vertex_cache.clear();
-        self.vertex_cache.par_extend(
-            vertices
-                .par_iter()
-                .enumerate()
-                .map(|(idx, vertex)| self.vertex_shader.vs_main(idx, vertex, uniform)),
-        );
+        if indices_are_sequential {
+            self.vertex_cache.par_extend(
+                self.index_cache
+                    .par_iter()
+                    .map(|&index| self.vertex_shader.vs_main(index, &vertices[index], uniform)),
+            );
+        } else {
+            self.vertex_cache.par_extend(
+                vertices
+                    .par_iter()
+                    .enumerate()
+                    .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
+            );
+        }
 
         let primitive_count = T::primitive_count(self.index_cache.len());
         if rayon::current_num_threads() == 1 || primitive_count < MIN_BINNED_PRIMITIVES {
@@ -699,18 +760,6 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 .for_each(|(row, (fb_chunk, db_chunk))| {
                     let row_y = row * row_height;
                     let current_row_height = (height - row_y).min(row_height);
-                    let mut process_fragment = |f: Fragment<Var>| {
-                        let local_y = f.y - row_y;
-                        let local_idx = f.x + local_y * width;
-                        if f.depth < db_chunk[local_idx] {
-                            let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
-                                return;
-                            };
-                            fb_chunk[local_idx] =
-                                F::blend(output, C::from(fb_chunk[local_idx])).into();
-                            db_chunk[local_idx] = f.depth;
-                        }
-                    };
 
                     if indices_are_sequential {
                         rasterizer
@@ -720,7 +769,19 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                if f.depth < db_chunk[local_idx] {
+                                    let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                    else {
+                                        return;
+                                    };
+                                    fb_chunk[local_idx] =
+                                        F::blend(output, C::from(fb_chunk[local_idx])).into();
+                                    db_chunk[local_idx] = f.depth;
+                                }
+                            });
                     } else {
                         rasterizer
                             .rasterize_tile(
@@ -729,7 +790,19 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                 height,
                                 [0, row_y, width, current_row_height],
                             )
-                            .for_each(&mut process_fragment);
+                            .for_each(|f| {
+                                let local_y = f.y - row_y;
+                                let local_idx = f.x + local_y * width;
+                                if f.depth < db_chunk[local_idx] {
+                                    let Some(output) = fragment_shader.fs_main(&f.varying, uniform)
+                                    else {
+                                        return;
+                                    };
+                                    fb_chunk[local_idx] =
+                                        F::blend(output, C::from(fb_chunk[local_idx])).into();
+                                    db_chunk[local_idx] = f.depth;
+                                }
+                            });
                     }
                 });
             return;
