@@ -351,8 +351,7 @@ impl TriangleRasterizer {
             Vec2::new(v2.x, v2.y),
         );
 
-        let should_cull = self.should_cull_face(area);
-
+        let should_cull = !area.is_finite() || self.should_cull_face(area);
         let mut w0_row = 0.0;
         let mut w1_row = 0.0;
         let mut w2_row = 0.0;
@@ -391,7 +390,7 @@ impl TriangleRasterizer {
             inv_w2 = 1.0 / v2.w;
         }
 
-        let x_range = min_x..max_x;
+        let x_range = min_x..if should_cull { min_x } else { max_x };
         let y_range = min_y..max_y;
 
         y_range.flat_map(move |y| {
@@ -411,10 +410,6 @@ impl TriangleRasterizer {
                 w0 += step_x0;
                 w1 += step_x1;
                 w2 += step_x2;
-
-                if should_cull {
-                    return None;
-                }
 
                 let inside = (current_w0 * area >= 0.0)
                     && (current_w1 * area >= 0.0)

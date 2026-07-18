@@ -377,3 +377,29 @@ fn test_indexed_draw() {
     let non_zero_pixels = framebuffer.iter().filter(|&&p| p != 0).count();
     assert!(non_zero_pixels > 0, "Indexed draw should render pixels");
 }
+
+#[test]
+fn test_sparse_indexed_draw_uses_source_vertex_indices() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [
+        (-2.0, -2.0, 0.0),
+        (-2.0, -2.0, 0.0),
+        (-2.0, -2.0, 0.0),
+        (-0.5, -0.5, 0.0),
+        (0.5, -0.5, 0.0),
+        (0.0, 0.5, 0.0),
+    ];
+    let renderer = Renderer::new(32, 32);
+    let mut framebuffer = vec![0_u32; 32 * 32];
+
+    renderer
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw_indexed(&vertices, [3, 4, 5].into_iter(), &mut framebuffer, &());
+
+    assert!(framebuffer.iter().any(|&pixel| pixel != 0));
+}

@@ -96,6 +96,14 @@ pub trait Primitive<Var> {
     ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>> + 'a
     where
         Var: Varying;
+
+    /// Returns the number of primitives produced by an indexed draw.
+    ///
+    /// Custom topologies can override this to improve the parallel pipeline's
+    /// choice between direct rasterization and spatial binning.
+    fn primitive_count(index_count: usize) -> usize {
+        index_count
+    }
 }
 
 impl<Var> Primitive<Var> for PointList {
@@ -118,6 +126,10 @@ impl<Var> Primitive<Var> for PointList {
         Var: Varying,
     {
         indices.iter().map(|&index| vertexs[index])
+    }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count
     }
 }
 
@@ -144,6 +156,10 @@ impl<Var> Primitive<Var> for LineList {
         let (chunks, _) = indices.as_chunks::<2>();
         chunks.iter().map(|&[i0, i1]| [vertexs[i0], vertexs[i1]])
     }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count / 2
+    }
 }
 
 impl<Var> Primitive<Var> for LineStrip {
@@ -168,6 +184,10 @@ impl<Var> Primitive<Var> for LineStrip {
         indices
             .array_windows::<2>()
             .map(|&[i0, i1]| [vertexs[i0], vertexs[i1]])
+    }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count.saturating_sub(1)
     }
 }
 
@@ -208,6 +228,10 @@ impl<Var> Primitive<Var> for LineLoop {
                 ]))
         })
     }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count
+    }
 }
 
 impl<Var> Primitive<Var> for TriangleList {
@@ -240,6 +264,10 @@ impl<Var> Primitive<Var> for TriangleList {
             .iter()
             .map(|&[i0, i1, i2]| [vertexs[i0], vertexs[i1], vertexs[i2]])
     }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count / 3
+    }
 }
 
 impl<Var> Primitive<Var> for TriangleStrip {
@@ -264,6 +292,10 @@ impl<Var> Primitive<Var> for TriangleStrip {
         indices
             .array_windows::<3>()
             .map(|&[i0, i1, i2]| [vertexs[i0], vertexs[i1], vertexs[i2]])
+    }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count.saturating_sub(2)
     }
 }
 
@@ -297,6 +329,10 @@ impl<Var> Primitive<Var> for TriangleFan {
                 .map(move |&[i1, i2]| [vertexs[first], vertexs[i1], vertexs[i2]])
         })
     }
+
+    fn primitive_count(index_count: usize) -> usize {
+        index_count.saturating_sub(2)
+    }
 }
 
 #[cfg(test)]
@@ -305,46 +341,43 @@ mod tests {
     use crate::math::Vec4;
 
     #[test]
+    fn built_in_topologies_report_assembled_primitive_counts() {
+        assert_eq!(<PointList as Primitive<()>>::primitive_count(7), 7);
+        assert_eq!(<LineList as Primitive<()>>::primitive_count(7), 3);
+        assert_eq!(<LineStrip as Primitive<()>>::primitive_count(7), 6);
+        assert_eq!(<LineLoop as Primitive<()>>::primitive_count(7), 7);
+        assert_eq!(<TriangleList as Primitive<()>>::primitive_count(7), 2);
+        assert_eq!(<TriangleStrip as Primitive<()>>::primitive_count(7), 5);
+        assert_eq!(<TriangleFan as Primitive<()>>::primitive_count(7), 5);
+    }
+
+    #[test]
     fn triangle_list_assembles_from_index_order() {
         let vertices = [
             VertexOutput {
                 position: Vec4::new(0.0, 0.0, 0.0, 1.0),
-                varying: (),
+                varying: 0.0,
             },
             VertexOutput {
                 position: Vec4::new(1.0, 0.0, 0.0, 1.0),
-                varying: (),
+                varying: 1.0,
             },
             VertexOutput {
                 position: Vec4::new(0.0, 1.0, 0.0, 1.0),
-                varying: (),
+                varying: 2.0,
             },
             VertexOutput {
                 position: Vec4::new(1.0, 1.0, 0.0, 1.0),
-                varying: (),
+                varying: 3.0,
             },
         ];
         let indices = [0, 1, 2, 2, 1, 3];
 
-        let primitives = <TriangleList as Primitive<()>>::assemble_indexed(&vertices, &indices)
+        let primitives = <TriangleList as Primitive<f32>>::assemble_indexed(&vertices, &indices)
             .collect::<Vec<_>>();
 
         assert_eq!(primitives.len(), 2);
-        assert_eq!(
-            primitives[0].map(|vertex| vertex.position),
-            [
-                vertices[0].position,
-                vertices[1].position,
-                vertices[2].position,
-            ]
-        );
-        assert_eq!(
-            primitives[1].map(|vertex| vertex.position),
-            [
-                vertices[2].position,
-                vertices[1].position,
-                vertices[3].position,
-            ]
-        );
+        assert_eq!(primitives[0].map(|vertex| vertex.varying), [0.0, 1.0, 2.0]);
+        assert_eq!(primitives[1].map(|vertex| vertex.varying), [2.0, 1.0, 3.0]);
     }
 }

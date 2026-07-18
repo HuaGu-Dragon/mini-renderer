@@ -53,9 +53,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
@@ -102,9 +103,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
@@ -153,9 +155,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
@@ -208,9 +211,10 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
