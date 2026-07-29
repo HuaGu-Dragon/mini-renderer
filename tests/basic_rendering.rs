@@ -29,7 +29,7 @@ impl VertexShader for TestVertexShader {
     }
 }
 
-// Simple test fragment shader that outputs red
+// Vertex shader that counts invocations (used by indexed draw tests)
 struct CountingVertexShader(Arc<AtomicUsize>);
 
 impl VertexShader for CountingVertexShader {
