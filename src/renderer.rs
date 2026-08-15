@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::{
-    graphics::{primitive::PrimitiveState, topology::Primitive},
+    graphics::{primitive::PrimitiveState, rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
         Pipeline,
         shader::{FragmentShader, VertexShader},
@@ -184,7 +184,18 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         U: Sync,
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
+        #[cfg(feature = "rayon")]
+        self.pipeline.draw_without_depth(
+            vertices,
+            framebuffer,
+            self.renderer.width,
+            self.renderer.height,
+            uniform,
+        );
+
+        #[cfg(not(feature = "rayon"))]
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
 
@@ -205,6 +216,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         U: Sync,
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.pipeline.draw_indexed_without_depth(
             vertices,
@@ -236,6 +248,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         C: From<O> + Into<O> + Send,
         O: Send + Copy,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
@@ -258,6 +271,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         C: From<O> + Into<O> + Send,
         O: Send + Copy,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.pipeline.draw_indexed_without_depth_blend(
             vertices,
@@ -288,6 +302,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         U: Sync,
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
@@ -309,6 +324,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         U: Sync,
         C: From<F::Output> + Send,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.pipeline.draw_indexed(
             vertices,
@@ -341,6 +357,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         C: From<O> + Into<O> + Send,
         O: Send + Copy,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
@@ -363,6 +380,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         C: From<O> + Into<O> + Send,
         O: Send + Copy,
         V::Vertex: Send + Sync,
+        <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
         self.pipeline.draw_indexed_with_depth_blend(
             vertices,

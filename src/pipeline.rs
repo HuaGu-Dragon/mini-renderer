@@ -2,10 +2,18 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+#[cfg(feature = "rayon")]
+use crate::graphics::rasterizer::Rasterizer;
 use crate::{
     graphics::topology::Primitive,
     pipeline::shader::{VertexOutput, VertexShader},
 };
+
+#[cfg(feature = "rayon")]
+type AssembledPrimitive<T, V> =
+    <<T as Primitive<<V as VertexShader>::Varying>>::Rasterizer as Rasterizer<
+        <V as VertexShader>::Varying,
+    >>::Primitive<<V as VertexShader>::Varying>;
 
 #[cfg(feature = "rayon")]
 mod parallel;
@@ -21,4 +29,14 @@ pub struct Pipeline<T: Primitive<V::Varying>, V: VertexShader, F> {
     fragment_shader: F,
     vertex_cache: Vec<VertexOutput<V::Varying>>,
     index_cache: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    primitive_cache: Vec<AssembledPrimitive<T, V>>,
+    #[cfg(feature = "rayon")]
+    row_counts: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    row_offsets: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    row_indices: Vec<usize>,
+    #[cfg(feature = "rayon")]
+    primitive_row_ranges: Vec<Option<[usize; 2]>>,
 }

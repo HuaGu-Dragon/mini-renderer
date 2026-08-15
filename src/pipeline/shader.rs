@@ -1,4 +1,4 @@
-use crate::math::Vec4;
+use crate::{math::Vec4, pipeline::varying::Varying};
 
 #[derive(Debug, Clone, Copy)]
 pub struct VertexOutput<Varying> {
@@ -8,7 +8,7 @@ pub struct VertexOutput<Varying> {
 
 pub trait VertexShader {
     type Vertex;
-    type Varying;
+    type Varying: Varying;
     type Uniform;
 
     fn vs_main(

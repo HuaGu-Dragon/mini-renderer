@@ -53,19 +53,23 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
-                framebuffer[idx] = output.into();
+                framebuffer[f.index] = output.into();
             });
     }
 
@@ -98,19 +102,23 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
-                framebuffer[idx] = F::blend(output, C::from(framebuffer[idx])).into();
+                framebuffer[f.index] = F::blend(output, C::from(framebuffer[f.index])).into();
             });
     }
 
@@ -145,21 +153,25 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
-                if f.depth < depth_buffer[idx] {
+                if f.depth < depth_buffer[f.index] {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    framebuffer[idx] = output.into();
-                    depth_buffer[idx] = f.depth;
+                    framebuffer[f.index] = output.into();
+                    depth_buffer[f.index] = f.depth;
                 }
             });
     }
@@ -196,21 +208,25 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
 
         self.vertex_cache.clear();
         self.vertex_cache.extend(
-            self.index_cache
+            vertices
                 .iter()
-                .map(|&idx| self.vertex_shader.vs_main(idx, &vertices[idx], uniform)),
+                .enumerate()
+                .map(|(index, vertex)| self.vertex_shader.vs_main(index, vertex, uniform)),
         );
 
         self.rasterizer
-            .rasterize(T::assemble(&self.vertex_cache[..]), width, height)
+            .rasterize(
+                T::assemble_indexed(&self.vertex_cache, &self.index_cache),
+                width,
+                height,
+            )
             .for_each(|f| {
-                let idx = f.x + f.y * width;
-                if f.depth < depth_buffer[idx] {
+                if f.depth < depth_buffer[f.index] {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    framebuffer[idx] = F::blend(output, C::from(framebuffer[idx])).into();
-                    depth_buffer[idx] = f.depth;
+                    framebuffer[f.index] = F::blend(output, C::from(framebuffer[f.index])).into();
+                    depth_buffer[f.index] = f.depth;
                 }
             });
     }

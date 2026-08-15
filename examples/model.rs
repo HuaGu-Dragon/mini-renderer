@@ -228,6 +228,7 @@ impl Renderer {
             std::mem::transmute::<&mut [MaybeUninit<Pixel>], &mut [Pixel]>(&mut self.buffer[..])
         };
 
+        let view_projection = self.camera.build_view_projection_matrix();
         self.render
             .begin_render_pass()
             .set_pipeline(&mut self.pipeline)
@@ -236,7 +237,7 @@ impl Renderer {
                 &self.model_vertices,
                 self.model_indices.iter().copied(),
                 pixels,
-                &self.camera,
+                &view_projection,
             );
 
         buffer.pixels().copy_from_slice(pixels);
@@ -252,7 +253,7 @@ struct Fragment {
 impl VertexShader for Vertex {
     type Vertex = ModelVertex;
     type Varying = ColorOutput;
-    type Uniform = Camera;
+    type Uniform = glam::Mat4;
 
     fn vs_main(
         &self,
@@ -260,9 +261,8 @@ impl VertexShader for Vertex {
         vertex: &Self::Vertex,
         uniform: &Self::Uniform,
     ) -> mini_renderer::pipeline::shader::VertexOutput<Self::Varying> {
-        let camera = uniform;
-        let position = camera.build_view_projection_matrix()
-            * Vec4::new(vertex.position.0, vertex.position.1, vertex.position.2, 1.0);
+        let position =
+            *uniform * Vec4::new(vertex.position.0, vertex.position.1, vertex.position.2, 1.0);
         VertexOutput {
             position,
             varying: vertex.varying,
@@ -277,7 +277,7 @@ pub struct ModelVertex {
 
 impl FragmentShader for Fragment {
     type Varying = ColorOutput;
-    type Uniform = Camera;
+    type Uniform = glam::Mat4;
     type Output = Pixel;
 
     fn fs_main(&self, varying: &Self::Varying, _uniform: &Self::Uniform) -> Option<Pixel> {

@@ -3,6 +3,10 @@ use mini_renderer::graphics::topology::PrimitiveTopology;
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
 use mini_renderer::renderer::{Renderer, create_render_pipeline};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 // Simple test vertex shader
 struct TestVertexShader;
@@ -25,7 +29,28 @@ impl VertexShader for TestVertexShader {
     }
 }
 
-// Simple test fragment shader that outputs red
+// Vertex shader that counts invocations (used by indexed draw tests)
+struct CountingVertexShader(Arc<AtomicUsize>);
+
+impl VertexShader for CountingVertexShader {
+    type Vertex = (f32, f32, f32);
+    type Varying = f32;
+    type Uniform = ();
+
+    fn vs_main(
+        &self,
+        _index: usize,
+        vertex: &Self::Vertex,
+        _uniform: &Self::Uniform,
+    ) -> VertexOutput<Self::Varying> {
+        self.0.fetch_add(1, Ordering::Relaxed);
+        VertexOutput {
+            position: Vec4::new(vertex.0, vertex.1, vertex.2, 1.0),
+            varying: 1.0,
+        }
+    }
+}
+
 struct TestFragmentShader;
 
 impl FragmentShader for TestFragmentShader {
@@ -72,6 +97,32 @@ fn test_zero_sized_render_target_is_a_noop() {
         .begin_render_pass()
         .set_pipeline(&mut pipeline)
         .draw(&[], &mut framebuffer, &());
+}
+
+#[test]
+fn test_indexed_draw_shades_each_vertex_once() {
+    let invocation_count = Arc::new(AtomicUsize::new(0));
+    let mut pipeline = create_render_pipeline(
+        CountingVertexShader(Arc::clone(&invocation_count)),
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [
+        (-0.5, -0.5, 0.0),
+        (0.5, -0.5, 0.0),
+        (-0.5, 0.5, 0.0),
+        (0.5, 0.5, 0.0),
+    ];
+    let indices = [0, 1, 2, 2, 1, 3];
+    let renderer = Renderer::new(16, 16);
+    let mut framebuffer = vec![0_u32; 16 * 16];
+
+    renderer
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &());
+
+    assert_eq!(invocation_count.load(Ordering::Relaxed), vertices.len());
 }
 
 #[test]
@@ -325,4 +376,30 @@ fn test_indexed_draw() {
 
     let non_zero_pixels = framebuffer.iter().filter(|&&p| p != 0).count();
     assert!(non_zero_pixels > 0, "Indexed draw should render pixels");
+}
+
+#[test]
+fn test_sparse_indexed_draw_uses_source_vertex_indices() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [
+        (-2.0, -2.0, 0.0),
+        (-2.0, -2.0, 0.0),
+        (-2.0, -2.0, 0.0),
+        (-0.5, -0.5, 0.0),
+        (0.5, -0.5, 0.0),
+        (0.0, 0.5, 0.0),
+    ];
+    let renderer = Renderer::new(32, 32);
+    let mut framebuffer = vec![0_u32; 32 * 32];
+
+    renderer
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw_indexed(&vertices, [3, 4, 5].into_iter(), &mut framebuffer, &());
+
+    assert!(framebuffer.iter().any(|&pixel| pixel != 0));
 }
