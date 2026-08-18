@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::PrimitiveTopology;
+use mini_renderer::graphics::{Face, FrontFace};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
 use softbuffer::{Buffer, Context, Pixel, Surface};
@@ -161,13 +162,15 @@ impl Renderer {
         let mut pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            PrimitiveState::new(PrimitiveTopology::line_loop()),
+            PrimitiveState::new(PrimitiveTopology::triangle_list())
+                .with_front_face(FrontFace::Ccw)
+                .with_cull_mode(Face::Back),
         );
 
         let vertexs = [
-            ((0.0, 0.5, 0.0), (1.0, 0.0, 0.0)),
-            ((0.5, -0.5, 0.0), (0.0, 1.0, 0.0)),
             ((-0.5, -0.5, 0.0), (0.0, 0.0, 1.0)),
+            ((0.5, -0.5, 0.0), (0.0, 1.0, 0.0)),
+            ((0.0, 0.5, 0.0), (1.0, 0.0, 0.0)),
         ];
 
         let pixels = unsafe {

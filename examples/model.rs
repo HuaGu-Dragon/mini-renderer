@@ -176,7 +176,7 @@ impl Renderer {
             Vertex,
             Fragment { textures },
             PrimitiveState::new(PrimitiveTopology::triangle_list())
-                .with_front_face(mini_renderer::graphics::FrontFace::Cw)
+                .with_front_face(mini_renderer::graphics::FrontFace::Ccw)
                 .with_cull_mode(Face::Back),
         );
 

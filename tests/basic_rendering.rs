@@ -284,10 +284,10 @@ fn test_front_face_culling() {
         TestVertexShader,
         TestFragmentShader,
         PrimitiveState::new(PrimitiveTopology::triangle_list())
+            .with_front_face(mini_renderer::graphics::FrontFace::Cw)
             .with_cull_mode(mini_renderer::graphics::Face::Front),
     );
 
-    // Triangle vertices arranged clockwise in NDC space (becomes CCW in screen space due to Y flip)
     // This makes it a front-facing triangle that should be culled
     let front_facing = [(-0.5, -0.5, 0.0), (0.0, 0.5, 0.0), (0.5, -0.5, 0.0)];
 

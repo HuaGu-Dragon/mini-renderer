@@ -6,6 +6,7 @@ use std::rc::Rc;
 use image::{ImageBuffer, Rgb};
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
+use mini_renderer::graphics::{Face, FrontFace};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
@@ -160,7 +161,9 @@ impl Renderer {
             Fragment {
                 buffer: diffuse_rgba,
             },
-            PrimitiveState::new(PrimitiveTopology::triangle_list()),
+            PrimitiveState::new(PrimitiveTopology::triangle_list())
+                .with_front_face(FrontFace::Cw)
+                .with_cull_mode(Face::Back),
         );
 
         Self {

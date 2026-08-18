@@ -185,7 +185,7 @@ impl Renderer {
         let pipeline = mini_renderer::renderer::create_render_pipeline(
             Vertex,
             Fragment,
-            PrimitiveState::new(PrimitiveTopology::triangle_list()).with_front_face(FrontFace::Cw),
+            PrimitiveState::new(PrimitiveTopology::triangle_list()).with_front_face(FrontFace::Ccw),
         );
 
         let renderer = mini_renderer::renderer::Renderer::new(width, height);

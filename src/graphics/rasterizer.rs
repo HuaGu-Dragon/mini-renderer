@@ -310,9 +310,11 @@ impl TriangleRasterizer {
     }
 
     fn should_cull_face(&self, area: f32) -> bool {
+        // Screen space has a top-left origin, so the viewport transform flips Y
+        // and reverses the winding from clip space.
         let is_front_face = match self.front_face {
-            FrontFace::Ccw => area > 0.0,
-            FrontFace::Cw => area < 0.0,
+            FrontFace::Ccw => area < 0.0,
+            FrontFace::Cw => area > 0.0,
         };
 
         area == 0.0
@@ -813,7 +815,7 @@ mod tests {
     #[test]
     fn triangle_bounds_reject_back_faces_before_binning() {
         let rasterizer =
-            <TriangleRasterizer as Rasterizer<()>>::new(FrontFace::Cw, Some(Face::Back));
+            <TriangleRasterizer as Rasterizer<()>>::new(FrontFace::Ccw, Some(Face::Back));
         let front_facing = [
             VertexOutput {
                 position: Vec4::new(-0.5, -0.5, 0.0, 1.0),
