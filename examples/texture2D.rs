@@ -39,7 +39,7 @@ enum AppState {
     },
     Running {
         surface: Surface<OwnedDisplayHandle, Rc<Window>>,
-        renderer: Renderer,
+        renderer: Box<Renderer>,
     },
 }
 
@@ -74,7 +74,7 @@ impl ApplicationHandler for App {
             surface.resize(width, height).unwrap();
         }
 
-        let renderer = Renderer::new(size.width as usize, size.height as usize);
+        let renderer = Box::new(Renderer::new(size.width as usize, size.height as usize));
         self.state = AppState::Running { surface, renderer };
     }
 
