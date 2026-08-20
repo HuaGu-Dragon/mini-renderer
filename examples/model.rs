@@ -1,4 +1,3 @@
-use std::f32;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::path::Path;
