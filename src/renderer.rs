@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use crate::{
     graphics::{primitive::PrimitiveState, rasterizer::Rasterizer, topology::Primitive},
     pipeline::{
@@ -43,7 +41,7 @@ pub struct WithDepth<'a>(&'a mut [f32]);
 pub struct NoBlend;
 
 /// Marker type for blending enabled
-pub struct WithBlend;
+pub struct WithBlend<B>(B);
 
 /// Represents a pipeline bound to a render pass, with compile-time-known depth and blend modes.
 ///
@@ -78,7 +76,7 @@ pub struct BoundPipeline<'a, T: Primitive<V::Varying>, V: VertexShader, F, D = N
     renderer: &'a Renderer,
     pipeline: &'a mut Pipeline<T, V, F>,
     depth_mode: D,
-    _blend_mode: PhantomData<B>,
+    blend_mode: B,
 }
 
 impl Renderer {
@@ -116,7 +114,7 @@ impl<'pass> RenderPass<'pass> {
             renderer: self.render,
             pipeline,
             depth_mode: NoDepth,
-            _blend_mode: PhantomData,
+            blend_mode: NoBlend,
         }
     }
 }
@@ -132,7 +130,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F, B> BoundPipeline<'a, T, V
             renderer: self.renderer,
             pipeline: self.pipeline,
             depth_mode: WithDepth(depth_buffer),
-            _blend_mode: PhantomData,
+            blend_mode: self.blend_mode,
         }
     }
 }
@@ -142,12 +140,13 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
     BoundPipeline<'a, T, V, F, NoDepth, NoBlend>
 {
     /// Enable blending (requires bidirectional From/Into conversion).
-    pub fn with_blend(self) -> BoundPipeline<'a, T, V, F, NoDepth, WithBlend> {
+    #[allow(unused_variables)]
+    pub fn with_blend<B>(self, blend: B) -> BoundPipeline<'a, T, V, F, NoDepth, WithBlend<B>> {
         BoundPipeline {
             renderer: self.renderer,
             pipeline: self.pipeline,
             depth_mode: NoDepth,
-            _blend_mode: PhantomData,
+            blend_mode: WithBlend(blend),
         }
     }
 }
@@ -156,12 +155,15 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
     BoundPipeline<'a, T, V, F, WithDepth<'a>, NoBlend>
 {
     /// Enable blending (requires bidirectional From/Into conversion).
-    pub fn with_blend(self) -> BoundPipeline<'a, T, V, F, WithDepth<'a>, WithBlend> {
+    pub fn with_blend<B>(
+        self,
+        blend: B,
+    ) -> BoundPipeline<'a, T, V, F, WithDepth<'a>, WithBlend<B>> {
         BoundPipeline {
             renderer: self.renderer,
             pipeline: self.pipeline,
             depth_mode: self.depth_mode,
-            _blend_mode: PhantomData,
+            blend_mode: WithBlend(blend),
         }
     }
 }
@@ -232,8 +234,8 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
 // ============================================================================
 // Draw methods for NoDepth + WithBlend
 // ============================================================================
-impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
-    BoundPipeline<'a, T, V, F, NoDepth, WithBlend>
+impl<'a, T: Primitive<V::Varying>, V: VertexShader, F, B>
+    BoundPipeline<'a, T, V, F, NoDepth, WithBlend<B>>
 {
     /// Draw all vertices with blending but without depth testing.
     #[inline]
@@ -249,6 +251,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         O: Send + Copy,
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
+        B: Fn(C, C) -> C + Sync + Copy,
     {
         self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
@@ -272,6 +275,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         O: Send + Copy,
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
+        B: Fn(C, C) -> C + Sync + Copy,
     {
         self.pipeline.draw_indexed_without_depth_blend(
             vertices,
@@ -280,6 +284,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
             self.renderer.width,
             self.renderer.height,
             uniform,
+            self.blend_mode.0,
         );
     }
 }
@@ -341,8 +346,8 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
 // ============================================================================
 // Draw methods for WithDepth + WithBlend
 // ============================================================================
-impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
-    BoundPipeline<'a, T, V, F, WithDepth<'a>, WithBlend>
+impl<'a, T: Primitive<V::Varying>, V: VertexShader, F, B>
+    BoundPipeline<'a, T, V, F, WithDepth<'a>, WithBlend<B>>
 {
     /// Draw all vertices with both depth testing and blending.
     #[inline]
@@ -358,8 +363,15 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         O: Send + Copy,
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
+        B: Fn(C, C) -> C + Sync + Copy,
     {
-        self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
+        self.draw_indexed(
+            vertices,
+            0..vertices.len(),
+            framebuffer,
+            uniform,
+            self.blend_mode.0,
+        );
     }
 
     /// Draw indexed vertices with both depth testing and blending.
@@ -370,6 +382,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [O],
         uniform: &U,
+        blend: impl Fn(C, C) -> C + Sync,
     ) where
         T: Primitive<Var>,
         <T as Primitive<Var>>::Rasterizer: Sync,
@@ -390,6 +403,7 @@ impl<'a, T: Primitive<V::Varying>, V: VertexShader, F>
             self.renderer.width,
             self.renderer.height,
             uniform,
+            blend,
         );
     }
 }

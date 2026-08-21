@@ -297,7 +297,17 @@ impl Renderer {
         self.update_textures(output.textures_delta);
 
         let render_pass = self.render.begin_render_pass();
-        let mut bound_pipeline = render_pass.set_pipeline(&mut self.pipeline).with_blend();
+        let mut bound_pipeline = render_pass.set_pipeline(&mut self.pipeline).with_blend(
+            |output: EguiColor, background: EguiColor| {
+                let alpha = output.a;
+                EguiColor {
+                    r: output.r * alpha + background.r * (1.0 - alpha),
+                    g: output.g * alpha + background.g * (1.0 - alpha),
+                    b: output.b * alpha + background.b * (1.0 - alpha),
+                    a: output.a + background.a * (1.0 - alpha),
+                }
+            },
+        );
 
         let start = std::time::Instant::now();
         for clipped_primitive in clipped_primitives {
@@ -413,16 +423,6 @@ impl FragmentShader for Fragment {
         a *= pixel.a() as f32 / 255.0;
 
         Some(EguiColor { r, g, b, a })
-    }
-
-    fn blend(output: Self::Output, background: Self::Output) -> Self::Output {
-        let alpha = output.a;
-        EguiColor {
-            r: output.r * alpha + background.r * (1.0 - alpha),
-            g: output.g * alpha + background.g * (1.0 - alpha),
-            b: output.b * alpha + background.b * (1.0 - alpha),
-            a: output.a + background.a * (1.0 - alpha),
-        }
     }
 }
 

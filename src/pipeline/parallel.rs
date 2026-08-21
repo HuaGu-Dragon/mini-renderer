@@ -422,6 +422,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             });
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[inline]
     pub(crate) fn draw_indexed_without_depth_blend<Var, C, O, U>(
         &mut self,
@@ -431,6 +432,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         width: usize,
         height: usize,
         uniform: &U,
+        blend: impl Fn(C, C) -> C + Sync,
     ) where
         T: Primitive<Var>,
         <T as Primitive<Var>>::Rasterizer: Sync,
@@ -499,7 +501,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                     return;
                                 };
                                 fb_chunk[f.index] =
-                                    F::blend(output, C::from(fb_chunk[f.index])).into();
+                                    blend(output, C::from(fb_chunk[f.index])).into();
                             });
                     } else {
                         rasterizer
@@ -515,7 +517,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                     return;
                                 };
                                 fb_chunk[f.index] =
-                                    F::blend(output, C::from(fb_chunk[f.index])).into();
+                                    blend(output, C::from(fb_chunk[f.index])).into();
                             });
                     }
                 });
@@ -581,7 +583,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                         let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                             return;
                         };
-                        fb_chunk[f.index] = F::blend(output, C::from(fb_chunk[f.index])).into();
+                        fb_chunk[f.index] = blend(output, C::from(fb_chunk[f.index])).into();
                     },
                 );
             });
@@ -774,6 +776,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         width: usize,
         height: usize,
         uniform: &U,
+        blend: impl Fn(C, C) -> C + Sync,
     ) where
         T: Primitive<Var>,
         <T as Primitive<Var>>::Rasterizer: Sync,
@@ -845,7 +848,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                         return;
                                     };
                                     fb_chunk[f.index] =
-                                        F::blend(output, C::from(fb_chunk[f.index])).into();
+                                        blend(output, C::from(fb_chunk[f.index])).into();
                                     db_chunk[f.index] = f.depth;
                                 }
                             });
@@ -864,7 +867,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                                         return;
                                     };
                                     fb_chunk[f.index] =
-                                        F::blend(output, C::from(fb_chunk[f.index])).into();
+                                        blend(output, C::from(fb_chunk[f.index])).into();
                                     db_chunk[f.index] = f.depth;
                                 }
                             });
@@ -934,7 +937,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                             let Some(output) = fragment_shader.fs_main(&f.varying, uniform) else {
                                 return;
                             };
-                            fb_chunk[f.index] = F::blend(output, C::from(fb_chunk[f.index])).into();
+                            fb_chunk[f.index] = blend(output, C::from(fb_chunk[f.index])).into();
                             db_chunk[f.index] = f.depth;
                         }
                     },

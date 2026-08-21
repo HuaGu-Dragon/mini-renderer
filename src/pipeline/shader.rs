@@ -25,9 +25,4 @@ pub trait FragmentShader {
     type Uniform;
 
     fn fs_main(&self, varying: &Self::Varying, uniform: &Self::Uniform) -> Option<Self::Output>;
-
-    #[allow(unused_variables)]
-    fn blend(output: Self::Output, background: Self::Output) -> Self::Output {
-        output
-    }
 }

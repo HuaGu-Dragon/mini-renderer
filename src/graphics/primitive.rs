@@ -16,7 +16,8 @@ pub struct PrimitiveState<T = TriangleList> {
 }
 
 impl<T> PrimitiveState<T> {
-    pub fn new(_topology: PrimitiveTopology<T>) -> Self {
+    #[allow(unused_variables)]
+    pub fn new(topology: PrimitiveTopology<T>) -> Self {
         Self {
             _topology: PhantomData,
             front_face: FrontFace::Ccw,
