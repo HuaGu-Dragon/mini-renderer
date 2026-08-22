@@ -35,7 +35,7 @@ pub struct RenderPass<'pass> {
 pub struct NoDepth;
 
 /// Marker type for depth buffer enabled
-pub struct WithDepth<'a>(&'a mut [f32]);
+pub struct WithDepth<'d>(&'d mut [f32]);
 
 /// Marker type for no blending
 pub struct NoBlend;
@@ -134,10 +134,7 @@ impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F, B>
     pub fn with_depth<'d>(
         self,
         depth_buffer: &'d mut [f32],
-    ) -> BoundPipeline<'pass, 'a, T, V, F, WithDepth<'a>, B>
-    where
-        'd: 'a,
-    {
+    ) -> BoundPipeline<'pass, 'a, T, V, F, WithDepth<'d>, B> {
         BoundPipeline {
             renderer: self.renderer,
             pipeline: self.pipeline,
@@ -166,14 +163,14 @@ impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F>
     }
 }
 
-impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F>
-    BoundPipeline<'pass, 'a, T, V, F, WithDepth<'a>, NoBlend>
+impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F>
+    BoundPipeline<'pass, 'a, T, V, F, WithDepth<'d>, NoBlend>
 {
     /// Enable blending (requires bidirectional From/Into conversion).
     pub fn with_blend<B>(
         self,
         blend: B,
-    ) -> BoundPipeline<'pass, 'a, T, V, F, WithDepth<'a>, WithBlend<B>> {
+    ) -> BoundPipeline<'pass, 'a, T, V, F, WithDepth<'d>, WithBlend<B>> {
         BoundPipeline {
             renderer: self.renderer,
             pipeline: self.pipeline,
@@ -307,8 +304,8 @@ impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F, B>
 // ============================================================================
 // Draw methods for WithDepth + NoBlend
 // ============================================================================
-impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F>
-    BoundPipeline<'pass, 'a, T, V, F, WithDepth<'a>, NoBlend>
+impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F>
+    BoundPipeline<'pass, 'a, T, V, F, WithDepth<'d>, NoBlend>
 {
     /// Draw all vertices with depth testing but without blending.
     #[inline]
@@ -361,8 +358,8 @@ impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F>
 // ============================================================================
 // Draw methods for WithDepth + WithBlend
 // ============================================================================
-impl<'pass, 'a, T: Primitive<V::Varying>, V: VertexShader, F, B>
-    BoundPipeline<'pass, 'a, T, V, F, WithDepth<'a>, WithBlend<B>>
+impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F, B>
+    BoundPipeline<'pass, 'a, T, V, F, WithDepth<'d>, WithBlend<B>>
 {
     /// Draw all vertices with both depth testing and blending.
     #[inline]
