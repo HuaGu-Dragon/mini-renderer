@@ -73,6 +73,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
             });
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[inline]
     pub(crate) fn draw_indexed_without_depth_blend<Var, C, O, U>(
         &mut self,
@@ -82,6 +83,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         width: usize,
         height: usize,
         uniform: &U,
+        blend: impl Fn(C, C) -> C + Copy,
     ) where
         T: Primitive<Var>,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
@@ -118,7 +120,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                 let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                     return;
                 };
-                framebuffer[f.index] = F::blend(output, C::from(framebuffer[f.index])).into();
+                framebuffer[f.index] = blend(output, C::from(framebuffer[f.index])).into();
             });
     }
 
@@ -187,6 +189,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         width: usize,
         height: usize,
         uniform: &U,
+        blend: impl Fn(C, C) -> C + Copy,
     ) where
         T: Primitive<Var>,
         V: VertexShader<Varying = Var, Uniform = U> + Sync,
@@ -225,7 +228,7 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
                     let Some(output) = self.fragment_shader.fs_main(&f.varying, uniform) else {
                         return;
                     };
-                    framebuffer[f.index] = F::blend(output, C::from(framebuffer[f.index])).into();
+                    framebuffer[f.index] = blend(output, C::from(framebuffer[f.index])).into();
                     depth_buffer[f.index] = f.depth;
                 }
             });

@@ -394,7 +394,7 @@ impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F, B>
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [O],
         uniform: &U,
-        blend: impl Fn(C, C) -> C + Sync,
+        blend: impl Fn(C, C) -> C + Sync + Copy,
     ) where
         T: Primitive<Var>,
         <T as Primitive<Var>>::Rasterizer: Sync,
