@@ -107,7 +107,6 @@ renderer
     .begin_render_pass()
     .set_pipeline(&mut pipeline)
     .with_depth(&mut depth_buffer)
-    .with_blend()
     .draw_indexed(&vertices, indices.into_iter(), &mut framebuffer, &());
 ```
 
@@ -171,7 +170,7 @@ Methods available depend on state:
 .with_depth(depth_buffer)
 
 // Only on NoBlend  
-.with_blend()
+.with_blend(blend)
 
 // Available in appropriate states
 .draw(vertices, framebuffer, uniform)
@@ -214,10 +213,6 @@ pub trait FragmentShader {
         varying: &Self::Varying,
         uniform: &Self::Uniform,
     ) -> Option<Self::Output>;
-
-    fn blend(output: Self::Output, background: Self::Output) -> Self::Output {
-        output
-    }
 }
 ```
 
@@ -237,7 +232,7 @@ The renderer uses Rust's type system to prevent invalid state combinations:
 
 ```rust
 // Compile error: can't call with_blend() twice
-pipeline.with_blend().with_blend().draw_indexed(...);
+pipeline.with_blend(blend).with_blend(blend).draw_indexed(...);
 
 // Compile error: can't draw without fragment shader state
 pipeline.draw_indexed(...);  // Missing method in initial state
@@ -252,7 +247,7 @@ renderer
     .begin_render_pass()
     .set_pipeline(&mut pipeline)
     .with_depth(&mut depth_buffer)      // Optional
-    .with_blend()                       // Optional
+    .with_blend(blend)                  // Optional
     .draw_indexed(vertices, indices, framebuffer, uniform);
 ```
 
