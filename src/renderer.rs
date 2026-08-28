@@ -63,12 +63,12 @@ pub struct WithBlend<B>(B);
 ///     .draw_indexed(vertices, indices, framebuffer, &uniform);
 ///
 /// // With blending
-/// pipeline.with_blend()
+/// pipeline.with_blend(blend)
 ///     .draw_indexed(vertices, indices, framebuffer, &uniform);
 ///
 /// // With both
 /// pipeline.with_depth(depth_buffer)
-///     .with_blend()
+///     .with_blend(blend)
 ///     .draw_indexed(vertices, indices, framebuffer, &uniform);
 /// ```
 pub struct BoundPipeline<
