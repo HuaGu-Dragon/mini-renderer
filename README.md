@@ -7,7 +7,7 @@ A lightweight software rasterizer written in Rust with a focus on type-safe rend
 ### Core Rendering
 - **Software Rasterization** - Triangle rasterization with per-pixel processing
 - **Depth Testing** - Z-buffer for correct depth ordering
-- **Color Blending** - Custom blending through `FragmentShader::blend`
+- **Color Blending** - Custom blending through `.with_blend(...)`
 - **Texture Sampling Examples** - 2D texture mapping with nearest-neighbor sampling
 - **Perspective-Correct Interpolation** - Correct varying interpolation in screen space
 - **Multi-threaded** - Parallel rasterization using Rayon
@@ -21,8 +21,8 @@ A lightweight software rasterizer written in Rust with a focus on type-safe rend
 ### Rendering Modes (Builder Pattern)
 - **Flexible State Management** - Compose rendering features at compile time:
   - `.with_depth(depth_buffer)` - Enable depth testing
-  - `.with_blend()` - Enable color blending
-  - Combine freely: `.with_depth(...).with_blend()`
+  - `.with_blend(...)` - Enable color blending
+  - Combine freely: `.with_depth(...).with_blend(...)`
 - **Type-Safe Composition** - Invalid state combinations fail at compile time
 
 ## Quick Start
@@ -255,7 +255,7 @@ renderer
 
 Users define custom behavior via traits:
 - `VertexShader` - Vertex transformation and varying output
-- `FragmentShader` - Fragment color and blending
+- `FragmentShader` - Fragment color
 - `Varying` - Attribute interpolation strategy
 
 ## Performance Considerations
