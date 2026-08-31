@@ -377,13 +377,7 @@ impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F, B>
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
         B: Fn(C, C) -> C + Sync + Copy,
     {
-        self.draw_indexed(
-            vertices,
-            0..vertices.len(),
-            framebuffer,
-            uniform,
-            self.blend_mode.0,
-        );
+        self.draw_indexed(vertices, 0..vertices.len(), framebuffer, uniform);
     }
 
     /// Draw indexed vertices with both depth testing and blending.
@@ -394,7 +388,6 @@ impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F, B>
         indexed: impl Iterator<Item = usize>,
         framebuffer: &mut [O],
         uniform: &U,
-        blend: impl Fn(C, C) -> C + Sync + Copy,
     ) where
         T: Primitive<Var>,
         <T as Primitive<Var>>::Rasterizer: Sync,
@@ -406,6 +399,7 @@ impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F, B>
         O: Send + Copy,
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
+        B: Fn(C, C) -> C + Sync + Copy,
     {
         self.pipeline.draw_indexed_with_depth_blend(
             vertices,
@@ -415,7 +409,7 @@ impl<'pass, 'a, 'd, T: Primitive<V::Varying>, V: VertexShader, F, B>
             self.renderer.width,
             self.renderer.height,
             uniform,
-            blend,
+            self.blend_mode.0,
         );
     }
 }
