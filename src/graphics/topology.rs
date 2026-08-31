@@ -69,12 +69,6 @@ pub struct TriangleFan;
 
 pub trait Primitive<Var> {
     type Rasterizer: Rasterizer<Var>;
-    // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
-    // type Primitive<'a, V>
-    // where
-    //     V: 'a,
-    //     Var: 'a;
-    // type Primitive<V>;
 
     fn rasterizer(
         front_face: FrontFace,
@@ -86,7 +80,6 @@ pub trait Primitive<Var> {
     fn assemble(
         vertexs: &[VertexOutput<Var>],
     ) -> impl Iterator<Item = <Self::Rasterizer as Rasterizer<Var>>::Primitive<Var>>
-    // -> impl Iterator<Item = Self::Primitive<'a, Var>>
     where
         Var: Varying;
 

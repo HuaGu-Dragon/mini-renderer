@@ -11,10 +11,6 @@ pub struct Fragment<V> {
 }
 
 pub trait Rasterizer<Var> {
-    // FIXME: due to a current limitation of the type system, this implies a 'static lifetime
-    // type Primitive<'a, V>
-    // where
-    //     V: 'a;
     type Primitive<V>: Copy
     where
         V: Copy;
