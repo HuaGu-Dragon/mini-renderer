@@ -4,6 +4,7 @@ extern crate alloc;
 #[cfg(feature = "derive")]
 pub use mini_renderer_derive::Varying;
 
+pub mod backend;
 pub mod graphics;
 pub mod math;
 pub mod pipeline;

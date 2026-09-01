@@ -21,14 +21,16 @@ glam = { version = "0.32.0", optional = true, default-features = false }
 libm = { version = "0.2.16", optional = true }
 rayon = { version = "1.11.0", optional = true }
 mini-renderer-derive = { path = "./mini-renderer-derive", optional = true }
+wgpu = { version = "30.0.1", optional = true }
+bytemuck = { version = "1.25.2", optional = true }
 
 [features]
-default = ["std", "glam", "derive", "rayon"]
+default = ["std", "glam", "derive", "rayon", "wgpu"]
 std = ["glam?/std"]
 rayon = ["dep:rayon"]
 glam = ["dep:glam"]
 derive = ["dep:mini-renderer-derive"]
-
+wgpu = ["dep:wgpu", "dep:bytemuck"]
 
 libm = ["dep:libm", "glam?/libm"]
 
