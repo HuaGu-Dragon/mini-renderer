@@ -58,6 +58,45 @@ impl WgpuRenderer {
             config,
         })
     }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        self.config.width = width;
+        self.config.height = height;
+        self.surface.configure(&self.device, &self.config);
+    }
+
+    pub fn begin_frame(&mut self) -> Result<WgpuFrame> {
+        let wgpu::CurrentSurfaceTexture::Success(output) = self.surface.get_current_texture()
+        else {
+            return Err(error::WgpuRendererError::SurfaceError);
+        };
+
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("mini-renderer encoder"),
+            });
+
+        Ok(WgpuFrame {
+            output,
+            view,
+            encoder,
+        })
+    }
+}
+
+pub struct WgpuFrame {
+    output: wgpu::SurfaceTexture,
+    view: wgpu::TextureView,
+    encoder: wgpu::CommandEncoder,
 }
 
 pub struct WgpuRenderPipeline {
