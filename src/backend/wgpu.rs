@@ -91,6 +91,11 @@ impl WgpuRenderer {
             encoder,
         })
     }
+
+    pub fn submit(&self, frame: WgpuFrame) {
+        self.queue.submit(core::iter::once(frame.encoder.finish()));
+        self.queue.present(frame.output);
+    }
 }
 
 pub struct WgpuFrame {
@@ -135,4 +140,15 @@ impl WgpuIndex for u16 {
 
 impl WgpuIndex for u32 {
     const FORMAT: wgpu::IndexFormat = wgpu::IndexFormat::Uint32;
+}
+
+pub trait WgpuVertexFormat: bytemuck::Pod {
+    const FORMAT: wgpu::VertexFormat;
+}
+
+pub trait WgpuVertex<'a>
+where
+    Self: 'a,
+{
+    fn layout() -> wgpu::VertexBufferLayout<'a>;
 }
