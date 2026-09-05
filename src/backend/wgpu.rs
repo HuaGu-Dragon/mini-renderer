@@ -1,6 +1,10 @@
-use crate::graphics::topology::{LineList, LineStrip, PointList, TriangleList, TriangleStrip};
+use crate::{
+    backend::wgpu::pipeline::{WgpuRenderPipeline, WgpuRenderPipelineDescriptor},
+    graphics::topology::{LineList, LineStrip, PointList, TriangleList, TriangleStrip},
+};
 
 pub mod error;
+pub mod pipeline;
 
 pub type Result<T> = std::result::Result<T, error::WgpuRendererError>;
 
@@ -96,16 +100,66 @@ impl WgpuRenderer {
         self.queue.submit(core::iter::once(frame.encoder.finish()));
         self.queue.present(frame.output);
     }
+
+    pub fn create_render_pipeline<T, V>(
+        &self,
+        descriptor: WgpuRenderPipelineDescriptor<'_, T, V>,
+    ) -> WgpuRenderPipeline
+    where
+        T: WgpuTopology,
+        V: for<'a> WgpuVertex<'a>,
+    {
+        let layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: descriptor.label,
+                bind_group_layouts: descriptor.bind_group_layouts,
+                immediate_size: 0,
+            });
+
+        let vertex_buffer = [Some(V::layout())];
+
+        let raw = self
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: descriptor.label,
+                layout: Some(&layout),
+                vertex: wgpu::VertexState {
+                    module: descriptor.shader,
+                    entry_point: descriptor.vertex_entry,
+                    compilation_options: Default::default(),
+                    buffers: &vertex_buffer,
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: T::TOPOLOGY,
+                    strip_index_format: descriptor.strip_index_format,
+                    // TODO: make it configable
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    conservative: false,
+                },
+                depth_stencil: descriptor.depth_stencil,
+                multisample: descriptor.multisample,
+                fragment: Some(wgpu::FragmentState {
+                    module: descriptor.shader,
+                    entry_point: descriptor.fragment_entry,
+                    compilation_options: Default::default(),
+                    targets: descriptor.color_targets,
+                }),
+                multiview_mask: None,
+                cache: None,
+            });
+
+        WgpuRenderPipeline { raw }
+    }
 }
 
 pub struct WgpuFrame {
     output: wgpu::SurfaceTexture,
     view: wgpu::TextureView,
     encoder: wgpu::CommandEncoder,
-}
-
-pub struct WgpuRenderPipeline {
-    raw: wgpu::RenderPipeline,
 }
 
 pub trait WgpuTopology {
