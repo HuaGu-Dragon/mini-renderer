@@ -133,7 +133,7 @@ impl WgpuRenderer {
                 primitive: wgpu::PrimitiveState {
                     topology: T::TOPOLOGY,
                     strip_index_format: descriptor.strip_index_format,
-                    // TODO: make it configable
+                    // TODO: make it configurable
                     front_face: wgpu::FrontFace::Ccw,
                     cull_mode: Some(wgpu::Face::Back),
                     unclipped_depth: false,
