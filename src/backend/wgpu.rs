@@ -1,3 +1,5 @@
+use wgpu::util::DeviceExt;
+
 use crate::{
     backend::wgpu::pipeline::{WgpuRenderPipeline, WgpuRenderPipelineDescriptor},
     graphics::topology::{LineList, LineStrip, PointList, TriangleList, TriangleStrip},
@@ -154,6 +156,30 @@ impl WgpuRenderer {
 
         WgpuRenderPipeline { raw }
     }
+
+    pub fn create_vertex_buffer<V>(&self, vertices: &[V]) -> wgpu::Buffer
+    where
+        V: for<'a> WgpuVertex<'a>,
+    {
+        self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("vertex buffer"),
+                contents: bytemuck::cast_slice(vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            })
+    }
+
+    pub fn create_index_buffer<I>(&self, indices: &[I]) -> wgpu::Buffer
+    where
+        I: bytemuck::NoUninit,
+    {
+        self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("vertex buffer"),
+                contents: bytemuck::cast_slice(indices),
+                usage: wgpu::BufferUsages::INDEX,
+            })
+    }
 }
 
 pub struct WgpuFrame {
@@ -202,7 +228,7 @@ pub trait WgpuVertexFormat: bytemuck::Pod {
 
 pub trait WgpuVertex<'a>
 where
-    Self: 'a,
+    Self: 'a + bytemuck::NoUninit,
 {
     fn layout() -> wgpu::VertexBufferLayout<'a>;
 }
