@@ -646,6 +646,11 @@ impl TriangleRasterizer {
         let inclusive0 = step_x0 > 0.0 || (step_x0 == 0.0 && step_y0 > 0.0);
         let inclusive1 = step_x1 > 0.0 || (step_x1 == 0.0 && step_y1 > 0.0);
         let inclusive2 = step_x2 > 0.0 || (step_x2 == 0.0 && step_y2 > 0.0);
+        // The smallest positive f32 makes >= equivalent to > 0 for an
+        // exclusive edge, without an arbitrary epsilon or changing weights.
+        let minimum0 = if inclusive0 { 0.0 } else { f32::from_bits(1) };
+        let minimum1 = if inclusive1 { 0.0 } else { f32::from_bits(1) };
+        let minimum2 = if inclusive2 { 0.0 } else { f32::from_bits(1) };
 
         let x_range = min_x..if should_cull { min_x } else { max_x };
         let y_range = min_y..max_y;
@@ -669,9 +674,8 @@ impl TriangleRasterizer {
                 w1 += step_x1;
                 w2 += step_x2;
 
-                let inside = (current_w0 > 0.0 || (current_w0 == 0.0 && inclusive0))
-                    && (current_w1 > 0.0 || (current_w1 == 0.0 && inclusive1))
-                    && (current_w2 > 0.0 || (current_w2 == 0.0 && inclusive2));
+                let inside =
+                    current_w0 >= minimum0 && current_w1 >= minimum1 && current_w2 >= minimum2;
 
                 if inside {
                     let alpha = current_w0 * inv_area;
