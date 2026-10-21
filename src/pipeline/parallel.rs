@@ -189,8 +189,9 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
@@ -286,15 +287,15 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
-        let indices_are_sequential = self.index_cache.len() == vertices.len()
-            && self.index_cache.iter().copied().eq(0..vertices.len());
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
+
+        self.cache_indices(indexed, vertices.len());
+        let indices_are_sequential = self.index_cache.len() == vertices.len()
+            && self.index_cache.iter().copied().eq(0..vertices.len());
 
         self.vertex_cache.clear();
         if indices_are_sequential {
@@ -445,13 +446,13 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
+        self.cache_indices(indexed, vertices.len());
         let indices_are_sequential = self.index_cache.len() == vertices.len()
             && self.index_cache.iter().copied().eq(0..vertices.len());
 
@@ -611,14 +612,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        assert_eq!(depth_buffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        assert_eq!(depth_buffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
+        self.cache_indices(indexed, vertices.len());
         let indices_are_sequential = self.index_cache.len() == vertices.len()
             && self.index_cache.iter().copied().eq(0..vertices.len());
 
@@ -789,14 +790,14 @@ impl<T: Primitive<V::Varying>, V: VertexShader, F> Pipeline<T, V, F> {
         V::Vertex: Send + Sync,
         <<T as Primitive<Var>>::Rasterizer as Rasterizer<Var>>::Primitive<Var>: Sync,
     {
-        assert_eq!(framebuffer.len(), width * height);
-        assert_eq!(depth_buffer.len(), width * height);
-        if width == 0 || height == 0 {
+        let target_len = Self::checked_target_len(width, height);
+        assert_eq!(framebuffer.len(), target_len);
+        assert_eq!(depth_buffer.len(), target_len);
+        if target_len == 0 {
             return;
         }
 
-        self.index_cache.clear();
-        self.index_cache.extend(indexed);
+        self.cache_indices(indexed, vertices.len());
         let indices_are_sequential = self.index_cache.len() == vertices.len()
             && self.index_cache.iter().copied().eq(0..vertices.len());
 
