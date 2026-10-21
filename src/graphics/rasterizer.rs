@@ -640,6 +640,13 @@ impl TriangleRasterizer {
             inv_w2 = 1.0 / v2.w;
         }
 
+        // The steps are winding-normalized: step_x is -dy and step_y is dx.
+        // With screen-space Y pointing down, only top/left edges own samples
+        // exactly on the edge. Adjacent triangles then cover a shared edge once.
+        let inclusive0 = step_x0 > 0.0 || (step_x0 == 0.0 && step_y0 > 0.0);
+        let inclusive1 = step_x1 > 0.0 || (step_x1 == 0.0 && step_y1 > 0.0);
+        let inclusive2 = step_x2 > 0.0 || (step_x2 == 0.0 && step_y2 > 0.0);
+
         let x_range = min_x..if should_cull { min_x } else { max_x };
         let y_range = min_y..max_y;
 
@@ -662,7 +669,9 @@ impl TriangleRasterizer {
                 w1 += step_x1;
                 w2 += step_x2;
 
-                let inside = current_w0 >= 0.0 && current_w1 >= 0.0 && current_w2 >= 0.0;
+                let inside = (current_w0 > 0.0 || (current_w0 == 0.0 && inclusive0))
+                    && (current_w1 > 0.0 || (current_w1 == 0.0 && inclusive1))
+                    && (current_w2 > 0.0 || (current_w2 == 0.0 && inclusive2));
 
                 if inside {
                     let alpha = current_w0 * inv_area;
