@@ -405,6 +405,48 @@ fn test_sparse_indexed_draw_uses_source_vertex_indices() {
 }
 
 #[test]
+fn test_triangle_crossing_near_clip_plane_renders() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.0, 0.5, -2.0)];
+    let mut framebuffer = vec![0_u32; 100 * 100];
+    let mut depth_buffer = vec![1.0; 100 * 100];
+
+    Renderer::new(100, 100)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .with_depth(&mut depth_buffer)
+        .draw(&vertices, &mut framebuffer, &());
+
+    assert!(framebuffer.iter().any(|&pixel| pixel != 0));
+    assert!(
+        depth_buffer
+            .iter()
+            .all(|&depth| (0.0..=1.0).contains(&depth))
+    );
+}
+
+#[test]
+fn test_triangle_fully_outside_clip_volume_is_discarded() {
+    let mut pipeline = create_render_pipeline(
+        TestVertexShader,
+        TestFragmentShader,
+        PrimitiveState::new(PrimitiveTopology::triangle_list()),
+    );
+    let vertices = [(-3.0, -0.5, 0.0), (-2.0, -0.5, 0.0), (-2.5, 0.5, 0.0)];
+    let mut framebuffer = vec![0_u32; 100 * 100];
+
+    Renderer::new(100, 100)
+        .begin_render_pass()
+        .set_pipeline(&mut pipeline)
+        .draw(&vertices, &mut framebuffer, &());
+
+    assert!(framebuffer.iter().all(|&pixel| pixel == 0));
+}
+
 #[should_panic(expected = "renderer dimensions overflow")]
 fn test_draw_rejects_dimension_overflow() {
     let mut pipeline = create_render_pipeline(
