@@ -1,3 +1,5 @@
+use core::ops::Range;
+
 use wgpu::util::DeviceExt;
 
 use crate::{
@@ -318,6 +320,11 @@ impl<'a> Pass<'a> {
             .set_index_buffer(buffer_slice.slice(..), T::FORMAT);
 
         self
+    }
+
+    pub fn draw_indexed(mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
+        self.render_pass
+            .draw_indexed(indices, base_vertex, instances);
     }
 }
 
