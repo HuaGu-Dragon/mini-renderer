@@ -97,7 +97,7 @@ fn adjacent_triangles_cover_half_open_quad_once() {
         for reversed in [false, true] {
             let mut vertices = indices.map(|index| corners[index]);
             if reversed {
-                for triangle in vertices.chunks_exact_mut(3) {
+                for triangle in vertices.as_chunks_mut::<3>().0 {
                     triangle.swap(1, 2);
                 }
             }

@@ -448,6 +448,7 @@ fn test_triangle_fully_outside_clip_volume_is_discarded() {
 }
 
 #[should_panic(expected = "renderer dimensions overflow")]
+#[test]
 fn test_draw_rejects_dimension_overflow() {
     let mut pipeline = create_render_pipeline(
         TestVertexShader,
