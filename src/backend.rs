@@ -1,2 +1,2 @@
-// #[cfg(feature = "wgpu")]
+#[cfg(feature = "wgpu")]
 pub mod wgpu;
