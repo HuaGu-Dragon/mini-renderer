@@ -7,13 +7,13 @@ use egui::TextureId;
 use egui_demo_lib::DemoWindows;
 use egui_winit::State;
 
+use mini_renderer::Varying;
 use mini_renderer::graphics::FrontFace;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
-use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -452,26 +452,9 @@ impl From<Pixel> for EguiColor {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Varying)]
 pub struct EguiVarying {
     pub uv: (f32, f32),
     pub color: (f32, f32, f32, f32),
     pub screen_pos: (f32, f32),
-}
-
-impl Varying for EguiVarying {
-    fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self {
-        Self {
-            uv: Varying::interpolate(v0.uv, v1.uv, v2.uv, w0, w1, w2),
-            color: Varying::interpolate(v0.color, v1.color, v2.color, w0, w1, w2),
-            screen_pos: Varying::interpolate(
-                v0.screen_pos,
-                v1.screen_pos,
-                v2.screen_pos,
-                w0,
-                w1,
-                w2,
-            ),
-        }
-    }
 }

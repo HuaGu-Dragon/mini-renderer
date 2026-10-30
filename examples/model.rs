@@ -4,13 +4,13 @@ use std::path::Path;
 use std::rc::Rc;
 
 use image::DynamicImage;
+use mini_renderer::Varying;
 use mini_renderer::graphics::Face;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::math::{Vec3, Vec4};
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
-use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, KeyEvent, StartCause, WindowEvent};
@@ -312,23 +312,13 @@ impl FragmentShader for Fragment {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Varying)]
 pub struct ColorOutput {
     pub tex_coord: (f32, f32),
     pub normal: (f32, f32, f32),
     pub color: (f32, f32, f32),
+    #[flat]
     pub texture_id: usize,
-}
-
-impl Varying for ColorOutput {
-    fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self {
-        Self {
-            tex_coord: Varying::interpolate(v0.tex_coord, v1.tex_coord, v2.tex_coord, w0, w1, w2),
-            normal: Varying::interpolate(v0.normal, v1.normal, v2.normal, w0, w1, w2),
-            color: Varying::interpolate(v0.color, v1.color, v2.color, w0, w1, w2),
-            texture_id: v0.texture_id,
-        }
-    }
 }
 
 struct CameraController {

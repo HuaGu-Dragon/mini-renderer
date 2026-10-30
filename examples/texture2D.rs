@@ -4,13 +4,13 @@ use std::num::NonZeroU32;
 use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
+use mini_renderer::Varying;
 use mini_renderer::graphics::primitive::PrimitiveState;
 use mini_renderer::graphics::topology::{PrimitiveTopology, TriangleList};
 use mini_renderer::graphics::{Face, FrontFace};
 use mini_renderer::math::Vec4;
 use mini_renderer::pipeline::Pipeline;
 use mini_renderer::pipeline::shader::{FragmentShader, VertexOutput, VertexShader};
-use mini_renderer::pipeline::varying::Varying;
 use softbuffer::{Buffer, Context, Pixel, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -318,17 +318,8 @@ impl FragmentShader for Fragment {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Varying)]
 struct ColorOutput {
     tex_coord: (f32, f32),
     color: (f32, f32, f32),
-}
-
-impl Varying for ColorOutput {
-    fn interpolate(v0: Self, v1: Self, v2: Self, w0: f32, w1: f32, w2: f32) -> Self {
-        Self {
-            tex_coord: Varying::interpolate(v0.tex_coord, v1.tex_coord, v2.tex_coord, w0, w1, w2),
-            color: Varying::interpolate(v0.color, v1.color, v2.color, w0, w1, w2),
-        }
-    }
 }
